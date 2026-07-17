@@ -1,0 +1,99 @@
+{
+  "comment": "Maps repo source files to Roblox Instance paths. A Studio MCP session deploys by: (1) ensuring every folder path exists as Folder instances, (2) for each entry, creating the Instance of the given className at the target path if missing, (3) setting its Source to the file contents. Deployment only happens on explicit request. Entries whose className is ModuleScript are required by the two Main entry points, so target paths must not be renamed without updating the requires.",
+  "folders": [
+    "ReplicatedStorage/VEShared",
+    "ServerScriptService/VEServer",
+    "ServerScriptService/VEServer/Services",
+    "ServerScriptService/VEServer/Setup",
+    "ServerScriptService/VEServer/Missions",
+    "StarterPlayer/StarterPlayerScripts/VEClient",
+    "StarterPlayer/StarterPlayerScripts/VEClient/Controllers"
+  ],
+  "entries": [
+    {
+      "source": "src/shared/Refs.luau",
+      "target": "ReplicatedStorage/VEShared/Refs",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/shared/Types.luau",
+      "target": "ReplicatedStorage/VEShared/Types",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/shared/FlightConfig.luau",
+      "target": "ReplicatedStorage/VEShared/FlightConfig",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/shared/NetBus.luau",
+      "target": "ReplicatedStorage/VEShared/NetBus",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/Main.server.luau",
+      "target": "ServerScriptService/VEServer/Main",
+      "className": "Script"
+    },
+    {
+      "source": "src/server/services/FlightController.luau",
+      "target": "ServerScriptService/VEServer/Services/FlightController",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/services/PassengerService.luau",
+      "target": "ServerScriptService/VEServer/Services/PassengerService",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/services/DamageService.luau",
+      "target": "ServerScriptService/VEServer/Services/DamageService",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/services/CargoService.luau",
+      "target": "ServerScriptService/VEServer/Services/CargoService",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/services/CombatService.luau",
+      "target": "ServerScriptService/VEServer/Services/CombatService",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/services/MissionService.luau",
+      "target": "ServerScriptService/VEServer/Services/MissionService",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/setup/PlaneRig.luau",
+      "target": "ServerScriptService/VEServer/Setup/PlaneRig",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/setup/RunwayBuilder.luau",
+      "target": "ServerScriptService/VEServer/Setup/RunwayBuilder",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/client/Main.client.luau",
+      "target": "StarterPlayer/StarterPlayerScripts/VEClient/Main",
+      "className": "LocalScript"
+    },
+    {
+      "source": "src/client/controllers/PilotController.luau",
+      "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/PilotController",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/client/controllers/PilotCameraController.luau",
+      "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/PilotCameraController",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/client/controllers/InstrumentsController.luau",
+      "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/InstrumentsController",
+      "className": "ModuleScript"
+    }
+  ]
+}

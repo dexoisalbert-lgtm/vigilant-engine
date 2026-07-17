@@ -1,0 +1,221 @@
+--!strict
+-- Programmatically constructs the Phase 1 airliner: hollow cabin, cockpit with
+-- VehicleSeat + dashboard, wings, engines, tail, fixed gear, boarding step,
+-- and the physics constraints the FlightController drives (thrust/lift/drag
+-- VectorForces + AlignOrientation). Applies all Refs tags and initial
+-- attributes, so everything downstream binds by tag, never by hierarchy.
+--
+-- Local frame: the root part is the cabin floor, centered at the model origin.
+-- Forward is -Z, right is +X, up is +Y.
+
+local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("VEShared")
+local Refs = require(Shared:WaitForChild("Refs"))
+local FlightConfig = require(Shared:WaitForChild("FlightConfig"))
+
+local PlaneRig = {}
+
+local COLOR_HULL = Color3.fromRGB(233, 236, 236)
+local COLOR_FLOOR = Color3.fromRGB(99, 95, 98)
+local COLOR_ACCENT = Color3.fromRGB(196, 40, 28)
+local COLOR_DARK = Color3.fromRGB(27, 42, 53)
+local COLOR_GLASS = Color3.fromRGB(163, 200, 220)
+
+type PartOptions = {
+	color: Color3?,
+	material: Enum.Material?,
+	transparency: number?,
+	canCollide: boolean?,
+	shape: Enum.PartType?,
+}
+
+local function makePart(name: string, size: Vector3, localCf: CFrame, options: PartOptions?): Part
+	local opts: PartOptions = options or {}
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.CFrame = localCf
+	part.Color = opts.color or COLOR_HULL
+	part.Material = opts.material or Enum.Material.SmoothPlastic
+	part.Transparency = opts.transparency or 0
+	part.CanCollide = if opts.canCollide == nil then true else opts.canCollide
+	if opts.shape then
+		part.Shape = opts.shape
+	end
+	part.Anchored = false
+	part.Massless = true
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	return part
+end
+
+local function weldTo(root: BasePart, part: BasePart)
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = root
+	weld.Part1 = part
+	weld.Parent = part
+end
+
+function PlaneRig.build(spawnCf: CFrame): Model
+	local plane = Instance.new("Model")
+	plane.Name = "DoomedAirliner"
+
+	-- Root: the cabin floor. The only massy part, so the center of mass stays
+	-- at the model origin and the force attachment below acts through it.
+	local root = makePart("Fuselage", Vector3.new(10, 1, 46), spawnCf, { color = COLOR_FLOOR })
+	root.Massless = false
+	root.Parent = plane
+	plane.PrimaryPart = root
+
+	local function addPart(name: string, size: Vector3, offset: CFrame, options: PartOptions?): Part
+		local part = makePart(name, size, spawnCf * offset, options)
+		part.Parent = plane
+		weldTo(root, part)
+		return part
+	end
+
+	-- Cabin shell (interior space y 0.5..7.5; door gap in the left wall).
+	addPart("WallRight", Vector3.new(1, 7, 46), CFrame.new(4.5, 4, 0))
+	addPart("WallLeftFront", Vector3.new(1, 7, 18), CFrame.new(-4.5, 4, -14))
+	addPart("WallLeftRear", Vector3.new(1, 7, 22), CFrame.new(-4.5, 4, 12))
+	addPart("Ceiling", Vector3.new(10, 1, 46), CFrame.new(0, 8, 0))
+	addPart("WallRear", Vector3.new(10, 7, 1), CFrame.new(0, 4, 22.5))
+	addPart("NoseLower", Vector3.new(10, 3, 1), CFrame.new(0, 2, -22.5))
+
+	local windshield = addPart("Windshield", Vector3.new(10, 4, 1), CFrame.new(0, 5.5, -22.5), {
+		color = COLOR_GLASS,
+		material = Enum.Material.Glass,
+		transparency = 0.45,
+	})
+	CollectionService:AddTag(windshield, Refs.Tags.CockpitWindow)
+
+	-- Cockpit interior.
+	local dash = addPart("Dashboard", Vector3.new(8, 2, 1), CFrame.new(0, 3.5, -21.5), {
+		color = COLOR_DARK,
+	})
+	CollectionService:AddTag(dash, Refs.Tags.CockpitDash)
+
+	local autopilotPrompt = Instance.new("ProximityPrompt")
+	autopilotPrompt.Name = "AutopilotPrompt"
+	autopilotPrompt.ActionText = "Toggle Autopilot"
+	autopilotPrompt.ObjectText = "Autopilot"
+	autopilotPrompt.HoldDuration = 0.4
+	autopilotPrompt.MaxActivationDistance = 8
+	autopilotPrompt.RequiresLineOfSight = false
+	autopilotPrompt.Parent = dash
+
+	local seat = Instance.new("VehicleSeat")
+	seat.Name = "PilotSeat"
+	seat.Size = Vector3.new(2, 0.8, 2)
+	seat.CFrame = spawnCf * CFrame.new(0, 0.9, -19)
+	seat.Color = COLOR_DARK
+	seat.Material = Enum.Material.Fabric
+	seat.Anchored = false
+	seat.Massless = true
+	seat.HeadsUpDisplay = false
+	seat.Parent = plane
+	weldTo(root, seat)
+	CollectionService:AddTag(seat, Refs.Tags.PilotSeat)
+
+	-- Wings: one slab through the fuselage, walkable for later phases.
+	local wing = addPart("Wings", Vector3.new(30, 0.8, 8), CFrame.new(0, 2, 2), {
+		color = COLOR_HULL,
+	})
+	CollectionService:AddTag(wing, Refs.Tags.Wing)
+
+	-- Engines: nacelles under each wing.
+	for side = -1, 1, 2 do
+		local engine = addPart(
+			if side < 0 then "EngineLeft" else "EngineRight",
+			Vector3.new(5, 2.4, 2.4),
+			CFrame.new(8 * side, 0.8, 2) * CFrame.Angles(0, math.rad(90), 0),
+			{ color = COLOR_DARK, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder }
+		)
+		engine:SetAttribute("EngineHealth", 100)
+		CollectionService:AddTag(engine, Refs.Tags.Engine)
+	end
+
+	-- Tail.
+	addPart("VerticalStabilizer", Vector3.new(0.8, 5, 7), CFrame.new(0, 11, 19), {
+		color = COLOR_ACCENT,
+	})
+	addPart("HorizontalStabilizer", Vector3.new(14, 0.8, 5), CFrame.new(0, 8.9, 20), {
+		color = COLOR_HULL,
+	})
+
+	-- Fixed tricycle gear (Phase 1: always down). Low-friction spheres.
+	local wheelPhysics = PhysicalProperties.new(0.7, 0.05, 0.2)
+	local wheelOffsets = {
+		Vector3.new(0, -1, -18),
+		Vector3.new(-3.5, -1, 6),
+		Vector3.new(3.5, -1, 6),
+	}
+	for index, offset in wheelOffsets do
+		local wheel = addPart("Wheel" .. index, Vector3.new(2, 2, 2), CFrame.new(offset), {
+			color = COLOR_DARK,
+			material = Enum.Material.Rubber,
+			shape = Enum.PartType.Ball,
+		})
+		wheel.CustomPhysicalProperties = wheelPhysics
+	end
+
+	-- Boarding step outside the door gap.
+	addPart("BoardingStep", Vector3.new(3, 1, 4), CFrame.new(-6, -1.5, -2), {
+		color = COLOR_FLOOR,
+	})
+
+	-- Physics rig: forces + orientation controller, all driven by the
+	-- FlightController each Heartbeat.
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "VE_RootAttachment"
+	attachment.Parent = root
+
+	local function makeForce(name: string, relativeTo: Enum.ActuatorRelativeTo): VectorForce
+		local force = Instance.new("VectorForce")
+		force.Name = name
+		force.Attachment0 = attachment
+		force.RelativeTo = relativeTo
+		force.ApplyAtCenterOfMass = true
+		force.Force = Vector3.zero
+		force.Parent = root
+		return force
+	end
+
+	makeForce("VE_ThrustForce", Enum.ActuatorRelativeTo.Attachment0)
+	makeForce("VE_LiftForce", Enum.ActuatorRelativeTo.Attachment0)
+	makeForce("VE_DragForce", Enum.ActuatorRelativeTo.World)
+
+	local align = Instance.new("AlignOrientation")
+	align.Name = "VE_Align"
+	align.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	align.Attachment0 = attachment
+	align.RigidityEnabled = false
+	align.MaxTorque = 1e9
+	align.Responsiveness = 25
+	align.CFrame = spawnCf.Rotation
+	align.Parent = root
+
+	-- Plane-wide state attributes (see docs/GAME_PLAN.md, Data Model).
+	plane:SetAttribute("FuelKg", FlightConfig.FuelCapacityKg)
+	plane:SetAttribute("EngineThrottle", 0)
+	plane:SetAttribute("AutopilotOn", false)
+	plane:SetAttribute("GearDown", true)
+	plane:SetAttribute("FlapsDeg", 0)
+	plane:SetAttribute("HullIntegrity", 100)
+
+	CollectionService:AddTag(plane, Refs.Tags.Plane)
+	CollectionService:AddTag(root, Refs.Tags.PlanePrimary)
+
+	plane.Parent = workspace
+
+	-- Server keeps physics authority; pilot input arrives over the NetBus.
+	pcall(function()
+		root:SetNetworkOwner(nil)
+	end)
+
+	return plane
+end
+
+return PlaneRig
