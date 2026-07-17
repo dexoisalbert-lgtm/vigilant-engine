@@ -102,6 +102,30 @@ function FlightController.start()
 		publish("EngineThrottle", math.clamp(t, 0, 1))
 	end)
 
+	-- External refuels (MissionService between missions) set the FuelKg
+	-- attribute; adopt any value that differs beyond our own rounding.
+	plane:GetAttributeChangedSignal("FuelKg"):Connect(function()
+		local value = plane:GetAttribute("FuelKg")
+		if typeof(value) == "number" and math.abs(value - fuelExact) > 2 then
+			fuelExact = value
+		end
+	end)
+
+	-- Thrust wash particles track the published throttle.
+	plane:GetAttributeChangedSignal("EngineThrottle"):Connect(function()
+		local throttleNow = plane:GetAttribute("EngineThrottle")
+		if typeof(throttleNow) ~= "number" then
+			return
+		end
+		for _, engine in Refs.all(Refs.Tags.Engine) do
+			local emitter = engine:FindFirstChild("VE_ThrustEmitter")
+			if emitter and emitter:IsA("ParticleEmitter") then
+				emitter.Enabled = throttleNow > 0.05
+				emitter.Rate = 10 + 60 * throttleNow
+			end
+		end
+	end)
+
 	local autopilotPrompt = dash:FindFirstChildOfClass("ProximityPrompt")
 	if autopilotPrompt then
 		autopilotPrompt.Triggered:Connect(function()

@@ -123,6 +123,24 @@ function PlaneRig.build(spawnCf: CFrame): Model
 		color = COLOR_DARK,
 	})
 
+	-- Smuggler compartment: a hidden alcove panel at the bay's front-left
+	-- corner. MissionService wires the toggle prompt and spawns contraband
+	-- behind it during Smuggle missions.
+	local smugglerPanel =
+		addPart("SmugglerPanel", Vector3.new(2.5, 3, 0.4), CFrame.new(-3, 2, 25), {
+			color = COLOR_FLOOR,
+			material = Enum.Material.DiamondPlate,
+		})
+	CollectionService:AddTag(smugglerPanel, Refs.Tags.SmugglerHold)
+	local panelPrompt = Instance.new("ProximityPrompt")
+	panelPrompt.Name = "PanelPrompt"
+	panelPrompt.ActionText = "Open Panel"
+	panelPrompt.ObjectText = "Loose Panel"
+	panelPrompt.HoldDuration = 0.6
+	panelPrompt.MaxActivationDistance = 6
+	panelPrompt.RequiresLineOfSight = false
+	panelPrompt.Parent = smugglerPanel
+
 	local holdLight = addPart("CargoLight", Vector3.new(1.5, 0.2, 1.5), CFrame.new(0, 7.6, 30), {
 		color = Color3.fromRGB(248, 248, 240),
 		material = Enum.Material.Neon,
@@ -247,6 +265,20 @@ function PlaneRig.build(spawnCf: CFrame): Model
 		)
 		engine:SetAttribute("EngineHealth", 100)
 		CollectionService:AddTag(engine, Refs.Tags.Engine)
+
+		-- Thrust wash particles; FlightController drives Rate/Enabled from the
+		-- live throttle.
+		local thrustEmitter = Instance.new("ParticleEmitter")
+		thrustEmitter.Name = "VE_ThrustEmitter"
+		thrustEmitter.Enabled = false
+		thrustEmitter.Rate = 0
+		thrustEmitter.Lifetime = NumberRange.new(0.2, 0.35)
+		thrustEmitter.Speed = NumberRange.new(18, 26)
+		thrustEmitter.Size = NumberSequence.new(0.6)
+		thrustEmitter.Color =
+			ColorSequence.new(Color3.fromRGB(255, 170, 80), Color3.fromRGB(120, 120, 130))
+		thrustEmitter.Transparency = NumberSequence.new(0.4)
+		thrustEmitter.Parent = engine
 	end
 
 	-- Cabin seating: two columns with a center aisle. The left seat is omitted

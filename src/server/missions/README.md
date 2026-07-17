@@ -1,7 +1,8 @@
-# Missions (Phase 6)
+# Missions
 
-Mission definition ModuleScripts live here, one per mission. Each module
-declares spawn point, weather, hostile schedule, cargo manifest, and win/lose
-conditions, and is executed by `MissionService`. See `docs/GAME_PLAN.md`
-(Content Plan and Phase 6) for the planned mission types: Delivery, Smuggle,
-Defend, Rescue, Chaos.
+Mission definitions currently live as data in `src/shared/MissionConfig.luau`
+(Delivery / Smuggle / Defend), executed by
+`src/server/services/MissionService.luau`. This folder is reserved for
+per-map mission ModuleScripts once additional maps (arctic corridor, storm
+belt, ocean run, mountain pass — see `docs/GAME_PLAN.md`) are built in
+Studio sessions.

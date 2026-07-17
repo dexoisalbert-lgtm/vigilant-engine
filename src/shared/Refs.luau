@@ -23,6 +23,7 @@ Refs.Tags = {
 	Wing = "VE_Wing",
 	GatlingSeat = "VE_GatlingSeat",
 	DropZone = "VE_DropZone",
+	SmugglerHold = "VE_SmugglerHold",
 	Repairable = "VE_Repairable",
 }
 

@@ -26,6 +26,7 @@ local Shared = ReplicatedStorage:WaitForChild("VEShared")
 local Refs = require(Shared:WaitForChild("Refs"))
 local CargoConfig = require(Shared:WaitForChild("CargoConfig"))
 local NetBus = require(Shared:WaitForChild("NetBus"))
+local RagdollUtil = require(Shared:WaitForChild("RagdollUtil"))
 local ScoreService = require(script.Parent:WaitForChild("ScoreService")) :: any
 
 local CargoService = {}
@@ -597,18 +598,19 @@ function CargoService.start()
 							local victim = nearest.humanoid
 							victim:TakeDamage(CargoConfig.CrocBiteDamage)
 							if victim.Health > 0 and victim.SeatPart == nil then
-								victim.PlatformStand = true
+								local victimModel = victim.Parent
+								if victimModel and victimModel:IsA("Model") then
+									RagdollUtil.ragdoll(
+										victimModel,
+										CargoConfig.CrocKnockdownSeconds
+									)
+								end
 								local away = (nearest.root.Position - critter.root.Position)
 								local flat = Vector3.new(away.X, 0, away.Z)
 								flat = if flat.Magnitude > 0.05 then flat.Unit else Vector3.xAxis
 								nearest.root:ApplyImpulse(
 									(flat * 18 + Vector3.new(0, 10, 0)) * nearest.root.AssemblyMass
 								)
-								task.delay(CargoConfig.CrocKnockdownSeconds, function()
-									if victim.Health > 0 then
-										victim.PlatformStand = false
-									end
-								end)
 							end
 						end
 					end

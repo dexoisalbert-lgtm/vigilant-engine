@@ -10,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("VEShared")
 local CabinConfig = require(Shared:WaitForChild("CabinConfig"))
 local NetBus = require(Shared:WaitForChild("NetBus"))
+local SoundKit = require(Shared:WaitForChild("SoundKit"))
 
 local CabinController = {}
 CabinController.name = "CabinController"
@@ -44,6 +45,7 @@ function CabinController.start()
 			return
 		end
 		toastOrder += 1
+		SoundKit.playIn(screenGui, SoundKit.Ids.Ping, 0.25)
 		local label = Instance.new("TextLabel")
 		label.LayoutOrder = toastOrder
 		label.Size = UDim2.new(1, 0, 0, 28)

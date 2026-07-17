@@ -57,6 +57,7 @@ type PartRecord = {
 	promptLabel: string,
 	fire: Fire?,
 	smoke: Smoke?,
+	breachEmitter: ParticleEmitter?,
 }
 
 local function readNumber(instance: Instance, name: string, fallback: number): number
@@ -107,6 +108,10 @@ function DamageService.start()
 		if record.smoke then
 			record.smoke:Destroy()
 			record.smoke = nil
+		end
+		if record.breachEmitter then
+			record.breachEmitter:Destroy()
+			record.breachEmitter = nil
 		end
 	end
 
@@ -202,6 +207,16 @@ function DamageService.start()
 		record.crackedAt = os.clock()
 		part.Material = Enum.Material.CorrodedMetal
 		part.Color = record.originalColor:Lerp(Color3.new(0, 0, 0), 0.4)
+		local breachEmitter = Instance.new("ParticleEmitter")
+		breachEmitter.Name = "VE_BreachEmitter"
+		breachEmitter.Rate = 6
+		breachEmitter.Lifetime = NumberRange.new(0.6, 1.1)
+		breachEmitter.Speed = NumberRange.new(4, 8)
+		breachEmitter.Size = NumberSequence.new(0.8)
+		breachEmitter.Color = ColorSequence.new(Color3.fromRGB(180, 180, 190))
+		breachEmitter.Transparency = NumberSequence.new(0.55)
+		breachEmitter.Parent = part
+		record.breachEmitter = breachEmitter
 		ensurePrompt(record, "Weld", "Breach")
 		publishHullIntegrity()
 		toastAll(("%s Hull breach: %s! Weld it shut!"):format(EMOJI_BREACH, part.Name))
@@ -341,6 +356,20 @@ function DamageService.start()
 		if record then
 			icePart(record)
 		end
+	end
+
+	-- Full airframe reset between missions (MissionService intermissions).
+	function DamageService.resetAll()
+		for _, record in records do
+			if record.part:GetAttribute("State") ~= "Ok" then
+				restore(record)
+			end
+			if record.zone == "Engine" then
+				record.part:SetAttribute("EngineHealth", 100)
+			end
+		end
+		publishHullIntegrity()
+		publishIceMass()
 	end
 
 	-- Targeted damage from external attackers (Phase 5 fighter bolts).

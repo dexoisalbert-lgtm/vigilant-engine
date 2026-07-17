@@ -51,6 +51,21 @@
       "className": "ModuleScript"
     },
     {
+      "source": "src/shared/MissionConfig.luau",
+      "target": "ReplicatedStorage/VEShared/MissionConfig",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/shared/RagdollUtil.luau",
+      "target": "ReplicatedStorage/VEShared/RagdollUtil",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/shared/SoundKit.luau",
+      "target": "ReplicatedStorage/VEShared/SoundKit",
+      "className": "ModuleScript"
+    },
+    {
       "source": "src/server/Main.server.luau",
       "target": "ServerScriptService/VEServer/Main",
       "className": "Script"
@@ -138,6 +153,11 @@
     {
       "source": "src/client/controllers/WingWalkController.luau",
       "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/WingWalkController",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/client/controllers/MissionController.luau",
+      "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/MissionController",
       "className": "ModuleScript"
     }
   ]

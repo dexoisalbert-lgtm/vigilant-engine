@@ -23,6 +23,7 @@ local Shared = ReplicatedStorage:WaitForChild("VEShared")
 local Refs = require(Shared:WaitForChild("Refs"))
 local CombatConfig = require(Shared:WaitForChild("CombatConfig"))
 local NetBus = require(Shared:WaitForChild("NetBus"))
+local SoundKit = require(Shared:WaitForChild("SoundKit"))
 local ScoreService = require(script.Parent:WaitForChild("ScoreService")) :: any
 local DamageService = require(script.Parent:WaitForChild("DamageService")) :: any
 
@@ -94,6 +95,7 @@ function CombatService.start()
 		explosion.BlastPressure = 0
 		explosion.DestroyJointRadiusPercent = 0
 		explosion.Parent = workspace
+		SoundKit.playAt(fighter.root.Position, SoundKit.Ids.Explosion, 1)
 		if fighter.lastAttacker then
 			ScoreService.award(fighter.lastAttacker, CombatConfig.FighterKillScore)
 			toastAll(
@@ -176,6 +178,19 @@ function CombatService.start()
 			elseif result then result.Position
 			else origin + direction * CombatConfig.GatlingRange
 		tracer(origin, endpoint, COLOR_TRACER_FRIENDLY)
+
+		-- Muzzle flash.
+		local flash = Instance.new("Part")
+		flash.Shape = Enum.PartType.Ball
+		flash.Material = Enum.Material.Neon
+		flash.Color = COLOR_TRACER_FRIENDLY
+		flash.Size = Vector3.new(0.8, 0.8, 0.8)
+		flash.Anchored = true
+		flash.CanCollide = false
+		flash.CanQuery = false
+		flash.CFrame = CFrame.new(origin)
+		flash.Parent = workspace
+		Debris:AddItem(flash, 0.08)
 
 		if hitFighter and hitFighter.model.Parent then
 			hitFighter.health -= CombatConfig.GatlingDamage
@@ -354,6 +369,18 @@ function CombatService.start()
 			end
 		end
 	end)
+
+	-- Public API for MissionService (Defend missions drive waves directly).
+	function CombatService.spawnWave(count: number)
+		for _ = 1, math.min(count, CombatConfig.FighterMaxActive - #fighters) do
+			spawnFighter()
+		end
+		toastAll(EMOJI_ALERT .. " Hostile fighters inbound! Man the wing guns!")
+	end
+
+	function CombatService.activeFighters(): number
+		return #fighters
+	end
 
 	-- Wave spawner + disengage when the plane slows down.
 	task.spawn(function()

@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("VEShared")
 local Refs = require(Shared:WaitForChild("Refs"))
 local CabinConfig = require(Shared:WaitForChild("CabinConfig"))
 local NetBus = require(Shared:WaitForChild("NetBus"))
+local RagdollUtil = require(Shared:WaitForChild("RagdollUtil"))
 local ScoreService = require(script.Parent:WaitForChild("ScoreService")) :: any
 
 local PassengerService = {}
@@ -34,6 +35,82 @@ local EMOJI_PLANE = "\u{2708}\u{FE0F}"
 
 local COLOR_BUBBLE = Color3.fromRGB(255, 255, 255)
 local COLOR_BUBBLE_ANGRY = Color3.fromRGB(255, 80, 70)
+
+local function randomDescription(): HumanoidDescription
+	local desc = Instance.new("HumanoidDescription")
+	local skin = CabinConfig.SkinTones[RNG:NextInteger(1, #CabinConfig.SkinTones)]
+	local shirt = CabinConfig.ShirtColors[RNG:NextInteger(1, #CabinConfig.ShirtColors)]
+	local pants = CabinConfig.PantsColors[RNG:NextInteger(1, #CabinConfig.PantsColors)]
+	desc.HeadColor = skin
+	desc.LeftArmColor = skin
+	desc.RightArmColor = skin
+	desc.TorsoColor = shirt
+	desc.LeftLegColor = pants
+	desc.RightLegColor = pants
+	return desc
+end
+
+-- Legless capsule passenger, used only if the rig builder API fails.
+local function makeFallbackRig(): Model
+	local model = Instance.new("Model")
+	local rootPart = Instance.new("Part")
+	rootPart.Name = "HumanoidRootPart"
+	rootPart.Size = Vector3.new(2, 2, 1)
+	rootPart.Transparency = 1
+	rootPart.CanCollide = false
+	rootPart.Parent = model
+
+	local torso = Instance.new("Part")
+	torso.Name = "Torso"
+	torso.Size = Vector3.new(2, 2, 1)
+	torso.Color = CabinConfig.ShirtColors[RNG:NextInteger(1, #CabinConfig.ShirtColors)]
+	torso.Parent = model
+	local torsoWeld = Instance.new("WeldConstraint")
+	torsoWeld.Part0 = rootPart
+	torsoWeld.Part1 = torso
+	torsoWeld.Parent = torso
+
+	local head = Instance.new("Part")
+	head.Name = "Head"
+	head.Shape = Enum.PartType.Ball
+	head.Size = Vector3.new(1.2, 1.2, 1.2)
+	head.Color = CabinConfig.SkinTones[RNG:NextInteger(1, #CabinConfig.SkinTones)]
+	head.CFrame = CFrame.new(0, 1.6, 0)
+	head.Parent = model
+	local headWeld = Instance.new("WeldConstraint")
+	headWeld.Part0 = rootPart
+	headWeld.Part1 = head
+	headWeld.Parent = head
+
+	local humanoid = Instance.new("Humanoid")
+	humanoid.RequiresNeck = false
+	humanoid.HipHeight = 1
+	humanoid.Parent = model
+	model.PrimaryPart = rootPart
+	return model
+end
+
+local function makeRig(): Model
+	local model: Model? = nil
+	local ok, result = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(
+			randomDescription(),
+			Enum.HumanoidRigType.R15
+		)
+	end)
+	if ok and result then
+		model = result
+	else
+		model = makeFallbackRig()
+	end
+	return model :: Model
+end
+
+-- Public: other services (MissionService's air marshal) reuse the NPC rig
+-- builder rather than duplicating the humanoid-construction fallbacks.
+function PassengerService.makeNpcRig(): Model
+	return makeRig()
+end
 
 type PassengerState = {
 	model: Model,
@@ -75,76 +152,6 @@ function PassengerService.start()
 			and rel.Z <= 38.5
 	end
 
-	local function randomDescription(): HumanoidDescription
-		local desc = Instance.new("HumanoidDescription")
-		local skin = CabinConfig.SkinTones[RNG:NextInteger(1, #CabinConfig.SkinTones)]
-		local shirt = CabinConfig.ShirtColors[RNG:NextInteger(1, #CabinConfig.ShirtColors)]
-		local pants = CabinConfig.PantsColors[RNG:NextInteger(1, #CabinConfig.PantsColors)]
-		desc.HeadColor = skin
-		desc.LeftArmColor = skin
-		desc.RightArmColor = skin
-		desc.TorsoColor = shirt
-		desc.LeftLegColor = pants
-		desc.RightLegColor = pants
-		return desc
-	end
-
-	-- Legless capsule passenger, used only if the rig builder API fails.
-	local function makeFallbackRig(): Model
-		local model = Instance.new("Model")
-		local rootPart = Instance.new("Part")
-		rootPart.Name = "HumanoidRootPart"
-		rootPart.Size = Vector3.new(2, 2, 1)
-		rootPart.Transparency = 1
-		rootPart.CanCollide = false
-		rootPart.Parent = model
-
-		local torso = Instance.new("Part")
-		torso.Name = "Torso"
-		torso.Size = Vector3.new(2, 2, 1)
-		torso.Color = CabinConfig.ShirtColors[RNG:NextInteger(1, #CabinConfig.ShirtColors)]
-		torso.Parent = model
-		local torsoWeld = Instance.new("WeldConstraint")
-		torsoWeld.Part0 = rootPart
-		torsoWeld.Part1 = torso
-		torsoWeld.Parent = torso
-
-		local head = Instance.new("Part")
-		head.Name = "Head"
-		head.Shape = Enum.PartType.Ball
-		head.Size = Vector3.new(1.2, 1.2, 1.2)
-		head.Color = CabinConfig.SkinTones[RNG:NextInteger(1, #CabinConfig.SkinTones)]
-		head.CFrame = CFrame.new(0, 1.6, 0)
-		head.Parent = model
-		local headWeld = Instance.new("WeldConstraint")
-		headWeld.Part0 = rootPart
-		headWeld.Part1 = head
-		headWeld.Parent = head
-
-		local humanoid = Instance.new("Humanoid")
-		humanoid.RequiresNeck = false
-		humanoid.HipHeight = 1
-		humanoid.Parent = model
-		model.PrimaryPart = rootPart
-		return model
-	end
-
-	local function makeRig(): Model
-		local model: Model? = nil
-		local ok, result = pcall(function()
-			return Players:CreateHumanoidModelFromDescription(
-				randomDescription(),
-				Enum.HumanoidRigType.R15
-			)
-		end)
-		if ok and result then
-			model = result
-		else
-			model = makeFallbackRig()
-		end
-		return model :: Model
-	end
-
 	local function setState(st: PassengerState, newState: string)
 		st.stateEpoch += 1
 		st.state = newState
@@ -178,7 +185,7 @@ function PassengerService.start()
 			st.bubbleLabel.TextColor3 = COLOR_BUBBLE
 			st.bubbleGui.Enabled = true
 			st.humanoid.Sit = false
-			st.humanoid.PlatformStand = true
+			RagdollUtil.ragdoll(st.model, CabinConfig.RagdollSeconds)
 		elseif newState == "Returning" then
 			st.timer = CabinConfig.ReturnTimeoutSeconds
 			st.moveAt = 0

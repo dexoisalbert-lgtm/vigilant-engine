@@ -119,6 +119,36 @@ strafe, firing tracer bolts that wound crew and can crack hull panels or set
 engines on fire. Shooting one down awards the kill score; slowing the plane
 below disengage speed makes them break off.
 
+## Missions (Phase 6)
+
+`MissionService` runs a round loop — intermission (airframe repaired, fuel
+topped up), mission, win/lose, repeat — publishing state to
+`ReplicatedStorage.VE_MissionState` for the client HUD banner. Three types
+rotate:
+
+| Mission | Goal | Failure |
+| --- | --- | --- |
+| Milk Run (Delivery) | Land on the beacon airfield pad | Timer, crash landing |
+| Special Cargo (Smuggle) | Hurl packages onto ground drop zones, then land home | Timer, crash, too many packages lost/confiscated |
+| Hostile Skies (Defend) | Survive fighter waves, then land | Timer, crash |
+
+Smuggle missions spawn contraband behind the loose panel in the cargo bay
+and put an **air marshal** in the cabin: carrying a package openly near him
+gets it confiscated and you cuffed into a seat. Packages riding in a
+backpack go unnoticed. Accomplice trucks flash their lights when a package
+lands in their zone.
+
+## Polish pass (Phase 7)
+
+- Real ragdolls (`RagdollUtil`): Motor6D→BallSocket swaps for turbulence,
+  croc attacks, and passenger tumbles, with a PlatformStand fallback.
+- VFX: engine thrust wash particles driven by throttle, hull-breach smoke,
+  gatling muzzle flashes, fighter-kill explosions.
+- `SoundKit`: one place for every sound id with play helpers; safe built-in
+  defaults ship now, uploaded sound ids get filled in during Studio polish.
+- Deferred to Studio sessions (needs visual iteration): second aircraft
+  variant, additional maps (arctic/storm/ocean/mountain routes).
+
 ## Tooling
 
 - [Rokit](https://github.com/rojo-rbx/rokit) pins tools (`rokit.toml`)
