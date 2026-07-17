@@ -19,6 +19,7 @@ Refs.Tags = {
 	Dispenser = "VE_Dispenser",
 	CargoHold = "VE_CargoHold",
 	CargoRamp = "VE_CargoRamp",
+	CargoItem = "VE_CargoItem",
 	Wing = "VE_Wing",
 	GatlingSeat = "VE_GatlingSeat",
 	DropZone = "VE_DropZone",

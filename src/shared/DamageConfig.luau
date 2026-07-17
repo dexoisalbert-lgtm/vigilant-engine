@@ -47,8 +47,10 @@ local DamageConfig = {
 	RepairScore = 15,
 	RepairPromptHoldSeconds = 0.8,
 
-	-- Ice weight (Roblox mass units; the plane root is ~320).
-	IceMassPerIcedPart = 80,
+	-- Ice weight in effective Roblox mass units (the plane root is ~320, and
+	-- lift loses IceMass * gravity). Both wings iced = ~16 studs/s^2 of sink
+	-- to fight — serious but recoverable with full throttle and pitch.
+	IceMassPerIcedPart = 15,
 }
 
 return DamageConfig

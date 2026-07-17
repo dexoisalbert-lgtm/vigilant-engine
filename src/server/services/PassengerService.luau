@@ -66,8 +66,13 @@ function PassengerService.start()
 	passengersFolder.Parent = workspace
 
 	local function insideCabin(position: Vector3): boolean
+		-- Covers the cabin plus the aft cargo bay (which ends at z ~38).
 		local rel = planeRoot.CFrame:PointToObjectSpace(position)
-		return math.abs(rel.X) <= 5.5 and rel.Y >= -1.5 and rel.Y <= 9.5 and math.abs(rel.Z) <= 23.5
+		return math.abs(rel.X) <= 5.5
+			and rel.Y >= -1.5
+			and rel.Y <= 9.5
+			and rel.Z >= -23.5
+			and rel.Z <= 38.5
 	end
 
 	local function randomDescription(): HumanoidDescription

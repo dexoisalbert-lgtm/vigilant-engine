@@ -41,6 +41,11 @@
       "className": "ModuleScript"
     },
     {
+      "source": "src/shared/CargoConfig.luau",
+      "target": "ReplicatedStorage/VEShared/CargoConfig",
+      "className": "ModuleScript"
+    },
+    {
       "source": "src/server/Main.server.luau",
       "target": "ServerScriptService/VEServer/Main",
       "className": "Script"

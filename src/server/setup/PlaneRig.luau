@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("VEShared")
 local Refs = require(Shared:WaitForChild("Refs"))
 local FlightConfig = require(Shared:WaitForChild("FlightConfig"))
+local CargoConfig = require(Shared:WaitForChild("CargoConfig"))
 
 local PlaneRig = {}
 
@@ -93,8 +94,63 @@ function PlaneRig.build(spawnCf: CFrame): Model
 	)
 	addPart("WallLeftRear", Vector3.new(1, 7, 22), CFrame.new(-4.5, 4, 12), { repairZone = "Hull" })
 	addPart("Ceiling", Vector3.new(10, 1, 46), CFrame.new(0, 8, 0), { repairZone = "Hull" })
-	addPart("WallRear", Vector3.new(10, 7, 1), CFrame.new(0, 4, 22.5), { repairZone = "Hull" })
 	addPart("NoseLower", Vector3.new(10, 3, 1), CFrame.new(0, 2, -22.5), { repairZone = "Hull" })
+
+	-- Bulkhead between cabin and cargo bay, with a center doorway.
+	addPart("BulkheadLeft", Vector3.new(3.5, 7, 1), CFrame.new(-3.25, 4, 22.5), {
+		repairZone = "Hull",
+	})
+	addPart("BulkheadRight", Vector3.new(3.5, 7, 1), CFrame.new(3.25, 4, 22.5), {
+		repairZone = "Hull",
+	})
+
+	-- Cargo bay (z 23..37) aft of the bulkhead, ending at the ramp opening.
+	local cargoFloor = addPart("CargoFloor", Vector3.new(10, 1, 14), CFrame.new(0, 0, 30), {
+		color = COLOR_FLOOR,
+	})
+	CollectionService:AddTag(cargoFloor, Refs.Tags.CargoHold)
+	addPart("CargoWallLeft", Vector3.new(1, 7, 14), CFrame.new(-4.5, 4, 30), {
+		repairZone = "Hull",
+	})
+	addPart("CargoWallRight", Vector3.new(1, 7, 14), CFrame.new(4.5, 4, 30), {
+		repairZone = "Hull",
+	})
+	addPart("CargoCeiling", Vector3.new(10, 1, 14), CFrame.new(0, 8, 30), { repairZone = "Hull" })
+	addPart("RackPadLeft", Vector3.new(3, 0.2, 12), CFrame.new(-2.2, 0.6, 30), {
+		color = COLOR_DARK,
+	})
+	addPart("RackPadRight", Vector3.new(3, 0.2, 12), CFrame.new(2.2, 0.6, 30), {
+		color = COLOR_DARK,
+	})
+
+	local holdLight = addPart("CargoLight", Vector3.new(1.5, 0.2, 1.5), CFrame.new(0, 7.6, 30), {
+		color = Color3.fromRGB(248, 248, 240),
+		material = Enum.Material.Neon,
+	})
+	local holdPointLight = Instance.new("PointLight")
+	holdPointLight.Brightness = 0.8
+	holdPointLight.Range = 14
+	holdPointLight.Color = Color3.fromRGB(255, 244, 224)
+	holdPointLight.Parent = holdLight
+
+	-- Rear ramp: welded in either the closed (vertical) or open (slide) pose;
+	-- CargoService re-welds it between the two on prompt toggle.
+	local ramp = addPart(
+		"CargoRamp",
+		Vector3.new(10, 0.8, 8),
+		CFrame.new(CargoConfig.RampClosedPosition)
+			* CFrame.Angles(math.rad(CargoConfig.RampClosedPitchDeg), 0, 0),
+		{ color = COLOR_FLOOR, material = Enum.Material.DiamondPlate }
+	)
+	CollectionService:AddTag(ramp, Refs.Tags.CargoRamp)
+	local rampPrompt = Instance.new("ProximityPrompt")
+	rampPrompt.Name = "RampPrompt"
+	rampPrompt.ActionText = "Open Ramp"
+	rampPrompt.ObjectText = "Cargo Ramp"
+	rampPrompt.HoldDuration = 0.6
+	rampPrompt.MaxActivationDistance = 10
+	rampPrompt.RequiresLineOfSight = false
+	rampPrompt.Parent = ramp
 
 	local windshield = addPart("Windshield", Vector3.new(10, 4, 1), CFrame.new(0, 5.5, -22.5), {
 		color = COLOR_GLASS,
@@ -275,11 +331,11 @@ function PlaneRig.build(spawnCf: CFrame): Model
 		light.Parent = fixture
 	end
 
-	-- Tail.
-	addPart("VerticalStabilizer", Vector3.new(0.8, 5, 7), CFrame.new(0, 11, 19), {
+	-- Tail (atop the cargo bay, at the new rear of the plane).
+	addPart("VerticalStabilizer", Vector3.new(0.8, 5, 7), CFrame.new(0, 11, 33), {
 		color = COLOR_ACCENT,
 	})
-	addPart("HorizontalStabilizer", Vector3.new(14, 0.8, 5), CFrame.new(0, 8.9, 20), {
+	addPart("HorizontalStabilizer", Vector3.new(14, 0.8, 5), CFrame.new(0, 8.9, 34), {
 		color = COLOR_HULL,
 	})
 

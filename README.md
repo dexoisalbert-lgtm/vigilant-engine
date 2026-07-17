@@ -83,6 +83,25 @@ straight into available thrust, and detached engines can be rebuilt (to 30%)
 by hammering the empty mount. `HullIntegrity` and `IceMass` are published as
 attributes on the plane model.
 
+## Cargo crew (Phase 4)
+
+The aft cargo bay (through the bulkhead door behind the galley) spawns
+strapped-down cargo: crates, a piano, luggage, a chicken crate, and a
+crocodile cage. The default loadout is over the plane's cargo capacity — an
+overweight plane can barely climb until someone jettisons the heavy stuff.
+
+| Interaction | Effect |
+| --- | --- |
+| "Unstrap" / "Strap Down" prompt on cargo | Frees it to slide (or secures it again inside the hold) |
+| Ramp prompt at the rear | Opens/closes the ramp; loose cargo gets sucked out aft in flight |
+| Touch luggage | Pick it up as a tool; click to hurl it (out the ramp, ideally) |
+| "Catch Chicken" / "Wrangle Croc" prompts | Recapture escaped animals (+score) |
+
+Cages burst on hard impacts once unstrapped. Chickens hop around underfoot;
+the crocodile hunts the nearest player or passenger and knocks them flat.
+`CargoMass` and `ExcessCargoMass` are published on the plane model, and
+excess weight subtracts directly from lift.
+
 ## Tooling
 
 - [Rokit](https://github.com/rojo-rbx/rokit) pins tools (`rokit.toml`)
