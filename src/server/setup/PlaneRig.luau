@@ -200,6 +200,38 @@ function PlaneRig.build(spawnCf: CFrame): Model
 		CollectionService:AddTag(wing, Refs.Tags.Wing)
 	end
 
+	-- Gatling turrets on each wing top: base, fixed barrel, and a gunner
+	-- seat. CombatService does the hitreg; the barrel is cosmetic.
+	for side = -1, 1, 2 do
+		local suffix = if side < 0 then "Left" else "Right"
+		addPart(
+			"GatlingBase" .. suffix,
+			Vector3.new(1.6, 0.8, 1.6),
+			CFrame.new(9.5 * side, 2.8, 3),
+			{
+				color = COLOR_DARK,
+				material = Enum.Material.Metal,
+			}
+		)
+		addPart(
+			"GatlingBarrel" .. suffix,
+			Vector3.new(0.5, 0.5, 4),
+			CFrame.new(9.5 * side, 3.6, 0.8),
+			{ color = COLOR_DARK, material = Enum.Material.Metal }
+		)
+		local gunSeat = Instance.new("Seat")
+		gunSeat.Name = "GatlingSeat" .. suffix
+		gunSeat.Size = Vector3.new(2, 0.5, 2)
+		gunSeat.CFrame = spawnCf * CFrame.new(9.5 * side, 2.65, 5)
+		gunSeat.Color = COLOR_DARK
+		gunSeat.Material = Enum.Material.Fabric
+		gunSeat.Anchored = false
+		gunSeat.Massless = true
+		gunSeat.Parent = plane
+		weldTo(root, gunSeat)
+		CollectionService:AddTag(gunSeat, Refs.Tags.GatlingSeat)
+	end
+
 	-- Engines: nacelles under each wing.
 	for side = -1, 1, 2 do
 		local engine = addPart(

@@ -46,6 +46,11 @@
       "className": "ModuleScript"
     },
     {
+      "source": "src/shared/CombatConfig.luau",
+      "target": "ReplicatedStorage/VEShared/CombatConfig",
+      "className": "ModuleScript"
+    },
+    {
       "source": "src/server/Main.server.luau",
       "target": "ServerScriptService/VEServer/Main",
       "className": "Script"
@@ -123,6 +128,16 @@
     {
       "source": "src/client/controllers/CabinController.luau",
       "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/CabinController",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/client/controllers/GunnerController.luau",
+      "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/GunnerController",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/client/controllers/WingWalkController.luau",
+      "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/WingWalkController",
       "className": "ModuleScript"
     }
   ]

@@ -1,6 +1,6 @@
 --!strict
 -- Locks the camera to first person while the local player occupies the
--- pilot seat, restoring free (classic) camera on exit.
+-- pilot seat or a gatling gunner seat, restoring free camera on exit.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -16,10 +16,13 @@ local localPlayer = Players.LocalPlayer
 
 function PilotCameraController.start()
 	local function onSeated(active: boolean, seatPart: BasePart?)
-		local isPilotSeat = active
+		local isLockSeat = active
 			and seatPart ~= nil
-			and CollectionService:HasTag(seatPart, Refs.Tags.PilotSeat)
-		localPlayer.CameraMode = if isPilotSeat
+			and (
+				CollectionService:HasTag(seatPart, Refs.Tags.PilotSeat)
+				or CollectionService:HasTag(seatPart, Refs.Tags.GatlingSeat)
+			)
+		localPlayer.CameraMode = if isLockSeat
 			then Enum.CameraMode.LockFirstPerson
 			else Enum.CameraMode.Classic
 	end

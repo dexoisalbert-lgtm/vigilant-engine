@@ -343,6 +343,19 @@ function DamageService.start()
 		end
 	end
 
+	-- Targeted damage from external attackers (Phase 5 fighter bolts).
+	function DamageService.attackPart(part: BasePart)
+		local record = records[part]
+		if not record then
+			return
+		end
+		if record.zone == "Engine" then
+			ignite(record)
+		elseif record.zone == "Hull" then
+			crackPart(record)
+		end
+	end
+
 	function DamageService.lightningStrike()
 		local record = randomOkRecord("Hull")
 		local engine = randomOkRecord("Engine")

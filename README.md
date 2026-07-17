@@ -102,6 +102,23 @@ the crocodile hunts the nearest player or passenger and knocks them flat.
 `CargoMass` and `ExcessCargoMass` are published on the plane model, and
 excess weight subtracts directly from lift.
 
+## Wing combat (Phase 5)
+
+Walk out the cabin door onto the wings — a client-side harness carries you
+with the plane's motion while you stand on its exterior (tunable via
+`CombatConfig.WingStickStrength`). Each wing has a mounted Gatling turret.
+
+| Interaction | Effect |
+| --- | --- |
+| Sit on a wing turret seat | First-person gunner view |
+| Hold Mouse 1 / F (touch button on mobile) | Fire; server-side hitreg with a small forgiveness cone |
+| Ice Axe on iced wings | Same Phase 3 repair flow, now under fire |
+
+Hostile fighters spawn in waves while the plane is at speed: they orbit and
+strafe, firing tracer bolts that wound crew and can crack hull panels or set
+engines on fire. Shooting one down awards the kill score; slowing the plane
+below disengage speed makes them break off.
+
 ## Tooling
 
 - [Rokit](https://github.com/rojo-rbx/rokit) pins tools (`rokit.toml`)
