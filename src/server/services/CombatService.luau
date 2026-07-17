@@ -25,6 +25,7 @@ local CombatConfig = require(Shared:WaitForChild("CombatConfig"))
 local NetBus = require(Shared:WaitForChild("NetBus"))
 local SoundKit = require(Shared:WaitForChild("SoundKit"))
 local ScoreService = require(script.Parent:WaitForChild("ScoreService")) :: any
+local StatsService = require(script.Parent:WaitForChild("StatsService")) :: any
 local DamageService = require(script.Parent:WaitForChild("DamageService")) :: any
 
 local CombatService = {}
@@ -98,6 +99,7 @@ function CombatService.start()
 		SoundKit.playAt(fighter.root.Position, SoundKit.Ids.Explosion, 1)
 		if fighter.lastAttacker then
 			ScoreService.award(fighter.lastAttacker, CombatConfig.FighterKillScore)
+			StatsService.addStat(fighter.lastAttacker, "FightersDowned", 1)
 			toastAll(
 				("%s %s shot down a fighter! +%d"):format(
 					EMOJI_BOOM,

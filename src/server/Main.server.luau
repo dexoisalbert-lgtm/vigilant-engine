@@ -25,6 +25,7 @@ end
 
 local serviceModules = {
 	servicesFolder:WaitForChild("ScoreService"),
+	servicesFolder:WaitForChild("StatsService"),
 	servicesFolder:WaitForChild("FlightController"),
 	servicesFolder:WaitForChild("GalleyService"),
 	servicesFolder:WaitForChild("PassengerService"),

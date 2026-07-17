@@ -66,6 +66,16 @@
       "className": "ModuleScript"
     },
     {
+      "source": "src/shared/PersistenceConfig.luau",
+      "target": "ReplicatedStorage/VEShared/PersistenceConfig",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/shared/ProfileStore.luau",
+      "target": "ReplicatedStorage/VEShared/ProfileStore",
+      "className": "ModuleScript"
+    },
+    {
       "source": "src/server/Main.server.luau",
       "target": "ServerScriptService/VEServer/Main",
       "className": "Script"
@@ -78,6 +88,11 @@
     {
       "source": "src/server/services/ScoreService.luau",
       "target": "ServerScriptService/VEServer/Services/ScoreService",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/services/StatsService.luau",
+      "target": "ServerScriptService/VEServer/Services/StatsService",
       "className": "ModuleScript"
     },
     {

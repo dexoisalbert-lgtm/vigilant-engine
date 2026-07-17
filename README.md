@@ -149,6 +149,22 @@ lands in their zone.
 - Deferred to Studio sessions (needs visual iteration): second aircraft
   variant, additional maps (arctic/storm/ocean/mountain routes).
 
+## Persistence (Phase 8)
+
+`StatsService` gives each player a session-locked persistent profile
+(`ProfileStore`, a compact ProfileService-style wrapper over
+`DataStoreService`) and drives the in-experience leaderboard. Session
+`Score` folds automatically into a lifetime `TotalScore` and running `Best`
+via a `ScoreService` award hook; `Wins` and `FightersDowned` are tracked as
+category stats. `Wins` and `Best` mirror into leaderstats.
+
+The profile store degrades gracefully: if the DataStore API is unavailable
+(a Studio session without "Enable Studio Access to API Services", or an
+offline test) it transparently falls back to an in-memory store, so the game
+runs normally and simply doesn't persist. Enable API access in Game Settings
+to turn on real saving. Shop / DevProduct economy is intentionally out of
+scope for now (schema hooks are left in `PersistenceConfig.Defaults`).
+
 ## Tooling
 
 - [Rokit](https://github.com/rojo-rbx/rokit) pins tools (`rokit.toml`)

@@ -27,6 +27,7 @@ local FlightConfig = require(Shared:WaitForChild("FlightConfig"))
 local CombatConfig = require(Shared:WaitForChild("CombatConfig"))
 local NetBus = require(Shared:WaitForChild("NetBus"))
 local ScoreService = require(script.Parent:WaitForChild("ScoreService")) :: any
+local StatsService = require(script.Parent:WaitForChild("StatsService")) :: any
 local DamageService = require(script.Parent:WaitForChild("DamageService")) :: any
 local CombatService = require(script.Parent:WaitForChild("CombatService")) :: any
 local PassengerService = require(script.Parent:WaitForChild("PassengerService")) :: any
@@ -576,6 +577,7 @@ function MissionService.start()
 			if won then
 				for _, player in Players:GetPlayers() do
 					ScoreService.award(player, MissionConfig.MissionWinScore)
+					StatsService.addStat(player, "Wins", 1)
 				end
 				state:SetAttribute("Objective", "Mission complete!")
 				toastAll(
