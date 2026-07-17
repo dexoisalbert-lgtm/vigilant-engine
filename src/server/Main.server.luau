@@ -24,7 +24,9 @@ if not Refs.find(Refs.Tags.Plane) then
 end
 
 local serviceModules = {
+	servicesFolder:WaitForChild("ScoreService"),
 	servicesFolder:WaitForChild("FlightController"),
+	servicesFolder:WaitForChild("GalleyService"),
 	servicesFolder:WaitForChild("PassengerService"),
 	servicesFolder:WaitForChild("DamageService"),
 	servicesFolder:WaitForChild("CargoService"),

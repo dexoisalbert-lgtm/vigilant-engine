@@ -31,6 +31,11 @@
       "className": "ModuleScript"
     },
     {
+      "source": "src/shared/CabinConfig.luau",
+      "target": "ReplicatedStorage/VEShared/CabinConfig",
+      "className": "ModuleScript"
+    },
+    {
       "source": "src/server/Main.server.luau",
       "target": "ServerScriptService/VEServer/Main",
       "className": "Script"
@@ -38,6 +43,16 @@
     {
       "source": "src/server/services/FlightController.luau",
       "target": "ServerScriptService/VEServer/Services/FlightController",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/services/ScoreService.luau",
+      "target": "ServerScriptService/VEServer/Services/ScoreService",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/server/services/GalleyService.luau",
+      "target": "ServerScriptService/VEServer/Services/GalleyService",
       "className": "ModuleScript"
     },
     {
@@ -93,6 +108,11 @@
     {
       "source": "src/client/controllers/InstrumentsController.luau",
       "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/InstrumentsController",
+      "className": "ModuleScript"
+    },
+    {
+      "source": "src/client/controllers/CabinController.luau",
+      "target": "StarterPlayer/StarterPlayerScripts/VEClient/Controllers/CabinController",
       "className": "ModuleScript"
     }
   ]

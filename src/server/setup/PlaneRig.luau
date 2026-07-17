@@ -22,6 +22,7 @@ local COLOR_FLOOR = Color3.fromRGB(99, 95, 98)
 local COLOR_ACCENT = Color3.fromRGB(196, 40, 28)
 local COLOR_DARK = Color3.fromRGB(27, 42, 53)
 local COLOR_GLASS = Color3.fromRGB(163, 200, 220)
+local COLOR_SEAT = Color3.fromRGB(52, 87, 132)
 
 type PartOptions = {
 	color: Color3?,
@@ -119,11 +120,17 @@ function PlaneRig.build(spawnCf: CFrame): Model
 	weldTo(root, seat)
 	CollectionService:AddTag(seat, Refs.Tags.PilotSeat)
 
-	-- Wings: one slab through the fuselage, walkable for later phases.
-	local wing = addPart("Wings", Vector3.new(30, 0.8, 8), CFrame.new(0, 2, 2), {
-		color = COLOR_HULL,
-	})
-	CollectionService:AddTag(wing, Refs.Tags.Wing)
+	-- Wings: left/right panels stopping at the fuselage walls so they don't
+	-- cut through the cabin interior. Walkable for wing-walking later.
+	for side = -1, 1, 2 do
+		local wing = addPart(
+			if side < 0 then "WingLeft" else "WingRight",
+			Vector3.new(11, 0.8, 8),
+			CFrame.new(9.5 * side, 2, 2),
+			{ color = COLOR_HULL }
+		)
+		CollectionService:AddTag(wing, Refs.Tags.Wing)
+	end
 
 	-- Engines: nacelles under each wing.
 	for side = -1, 1, 2 do
@@ -135,6 +142,83 @@ function PlaneRig.build(spawnCf: CFrame): Model
 		)
 		engine:SetAttribute("EngineHealth", 100)
 		CollectionService:AddTag(engine, Refs.Tags.Engine)
+	end
+
+	-- Cabin seating: two columns with a center aisle. The left seat is omitted
+	-- where a row would block the boarding door (wall gap z -5..1).
+	local seatRows = { -12, -8, -4, 0, 4, 8, 12 }
+	for _, rowZ in seatRows do
+		for side = -1, 1, 2 do
+			if side < 0 and (rowZ == -4 or rowZ == 0) then
+				continue
+			end
+			local cabinSeat = Instance.new("Seat")
+			cabinSeat.Name = ("CabinSeat_%s%d"):format(if side < 0 then "L" else "R", rowZ)
+			cabinSeat.Size = Vector3.new(2, 0.8, 2)
+			cabinSeat.CFrame = spawnCf * CFrame.new(2.5 * side, 0.9, rowZ)
+			cabinSeat.Color = COLOR_SEAT
+			cabinSeat.Material = Enum.Material.Fabric
+			cabinSeat.Anchored = false
+			cabinSeat.Massless = true
+			cabinSeat:SetAttribute("Buckled", false)
+			cabinSeat.Parent = plane
+			weldTo(root, cabinSeat)
+			CollectionService:AddTag(cabinSeat, Refs.Tags.CabinSeat)
+
+			local bucklePrompt = Instance.new("ProximityPrompt")
+			bucklePrompt.Name = "BucklePrompt"
+			bucklePrompt.ActionText = "Buckle Seatbelt"
+			bucklePrompt.ObjectText = "Seatbelt"
+			bucklePrompt.HoldDuration = 0.3
+			bucklePrompt.MaxActivationDistance = 7
+			bucklePrompt.RequiresLineOfSight = false
+			bucklePrompt.Parent = cabinSeat
+		end
+	end
+
+	-- Galley: rear counter with item dispensers the crew grab tools from.
+	addPart("GalleyCounter", Vector3.new(7, 2.5, 1.2), CFrame.new(0, 1.75, 20.5), {
+		color = COLOR_DARK,
+		material = Enum.Material.Metal,
+	})
+	local dispenserItems = {
+		{ item = "Coffee", color = Color3.fromRGB(122, 84, 60) },
+		{ item = "Soda", color = Color3.fromRGB(30, 120, 220) },
+		{ item = "Burger", color = Color3.fromRGB(214, 133, 46) },
+		{ item = "Tray", color = Color3.fromRGB(200, 200, 205) },
+	}
+	for index, entry in dispenserItems do
+		local dispenser = addPart(
+			"Dispenser" .. entry.item,
+			Vector3.new(1.2, 1.2, 1),
+			CFrame.new(-2.7 + (index - 1) * 1.8, 3.6, 20.6),
+			{ color = entry.color, material = Enum.Material.Metal }
+		)
+		dispenser:SetAttribute("Item", entry.item)
+		CollectionService:AddTag(dispenser, Refs.Tags.Dispenser)
+
+		local dispensePrompt = Instance.new("ProximityPrompt")
+		dispensePrompt.Name = "DispensePrompt"
+		dispensePrompt.ActionText = "Take " .. entry.item
+		dispensePrompt.ObjectText = "Galley"
+		dispensePrompt.HoldDuration = 0.25
+		dispensePrompt.MaxActivationDistance = 6
+		dispensePrompt.RequiresLineOfSight = false
+		dispensePrompt.Parent = dispenser
+	end
+
+	-- Cabin ceiling lights so the enclosed interior isn't pitch black.
+	for _, lightZ in { -10, 2, 14 } do
+		local fixture =
+			addPart("CabinLight", Vector3.new(1.5, 0.2, 1.5), CFrame.new(0, 7.6, lightZ), {
+				color = Color3.fromRGB(248, 248, 240),
+				material = Enum.Material.Neon,
+			})
+		local light = Instance.new("PointLight")
+		light.Brightness = 0.8
+		light.Range = 14
+		light.Color = Color3.fromRGB(255, 244, 224)
+		light.Parent = fixture
 	end
 
 	-- Tail.

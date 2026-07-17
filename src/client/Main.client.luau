@@ -11,6 +11,7 @@ local controllerModules = {
 	controllersFolder:WaitForChild("PilotController"),
 	controllersFolder:WaitForChild("PilotCameraController"),
 	controllersFolder:WaitForChild("InstrumentsController"),
+	controllersFolder:WaitForChild("CabinController"),
 }
 
 for _, moduleScript in controllerModules do

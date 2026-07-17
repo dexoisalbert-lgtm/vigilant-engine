@@ -16,6 +16,7 @@ Refs.Tags = {
 	CockpitWindow = "VE_CockpitWindow",
 	Runway = "VE_Runway",
 	CabinSeat = "VE_CabinSeat",
+	Dispenser = "VE_Dispenser",
 	CargoHold = "VE_CargoHold",
 	CargoRamp = "VE_CargoRamp",
 	Wing = "VE_Wing",

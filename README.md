@@ -48,6 +48,21 @@ The dashboard instrument cluster (speed, altitude, vertical speed, heading,
 throttle, fuel) renders on the `VE_CockpitDash` part and updates live from
 plane attributes.
 
+## Cabin crew (Phase 2)
+
+| Interaction | Effect |
+| --- | --- |
+| Galley dispensers (rear counter) | Take a Coffee / Soda / Burger / Tray tool |
+| "Serve" prompt on a passenger | Deliver the item they're demanding (+score) |
+| "Buckle Seatbelt" prompt on a seat | Protects the occupant (player or NPC) from turbulence |
+| Click with Coffee equipped | Sip: brief caffeination speed buff (3 sips per cup) |
+| Sip Coffee in freefall off a moving plane | Coffee Break Plus: big score, broadcast to everyone |
+
+Passengers demand items on a timer and enrage if ignored — enraged passengers
+wander the cabin and shove crew. Periodic turbulence tosses every unbuckled
+occupant (players included); buckled ones are safe. Passengers who get thrown
+out of the plane do not survive the experience.
+
 ## Tooling
 
 - [Rokit](https://github.com/rojo-rbx/rokit) pins tools (`rokit.toml`)
