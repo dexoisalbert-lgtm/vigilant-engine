@@ -30,6 +30,7 @@ type PartOptions = {
 	transparency: number?,
 	canCollide: boolean?,
 	shape: Enum.PartType?,
+	repairZone: string?, -- "Hull" | "Wing" | "Engine": tags the part VE_Repairable
 }
 
 local function makePart(name: string, size: Vector3, localCf: CFrame, options: PartOptions?): Part
@@ -72,23 +73,34 @@ function PlaneRig.build(spawnCf: CFrame): Model
 
 	local function addPart(name: string, size: Vector3, offset: CFrame, options: PartOptions?): Part
 		local part = makePart(name, size, spawnCf * offset, options)
+		if options and options.repairZone then
+			part:SetAttribute("DamageZone", options.repairZone)
+			CollectionService:AddTag(part, Refs.Tags.Repairable)
+		end
 		part.Parent = plane
 		weldTo(root, part)
 		return part
 	end
 
 	-- Cabin shell (interior space y 0.5..7.5; door gap in the left wall).
-	addPart("WallRight", Vector3.new(1, 7, 46), CFrame.new(4.5, 4, 0))
-	addPart("WallLeftFront", Vector3.new(1, 7, 18), CFrame.new(-4.5, 4, -14))
-	addPart("WallLeftRear", Vector3.new(1, 7, 22), CFrame.new(-4.5, 4, 12))
-	addPart("Ceiling", Vector3.new(10, 1, 46), CFrame.new(0, 8, 0))
-	addPart("WallRear", Vector3.new(10, 7, 1), CFrame.new(0, 4, 22.5))
-	addPart("NoseLower", Vector3.new(10, 3, 1), CFrame.new(0, 2, -22.5))
+	-- Everything here is a repairable hull panel.
+	addPart("WallRight", Vector3.new(1, 7, 46), CFrame.new(4.5, 4, 0), { repairZone = "Hull" })
+	addPart(
+		"WallLeftFront",
+		Vector3.new(1, 7, 18),
+		CFrame.new(-4.5, 4, -14),
+		{ repairZone = "Hull" }
+	)
+	addPart("WallLeftRear", Vector3.new(1, 7, 22), CFrame.new(-4.5, 4, 12), { repairZone = "Hull" })
+	addPart("Ceiling", Vector3.new(10, 1, 46), CFrame.new(0, 8, 0), { repairZone = "Hull" })
+	addPart("WallRear", Vector3.new(10, 7, 1), CFrame.new(0, 4, 22.5), { repairZone = "Hull" })
+	addPart("NoseLower", Vector3.new(10, 3, 1), CFrame.new(0, 2, -22.5), { repairZone = "Hull" })
 
 	local windshield = addPart("Windshield", Vector3.new(10, 4, 1), CFrame.new(0, 5.5, -22.5), {
 		color = COLOR_GLASS,
 		material = Enum.Material.Glass,
 		transparency = 0.45,
+		repairZone = "Hull",
 	})
 	CollectionService:AddTag(windshield, Refs.Tags.CockpitWindow)
 
@@ -127,7 +139,7 @@ function PlaneRig.build(spawnCf: CFrame): Model
 			if side < 0 then "WingLeft" else "WingRight",
 			Vector3.new(11, 0.8, 8),
 			CFrame.new(9.5 * side, 2, 2),
-			{ color = COLOR_HULL }
+			{ color = COLOR_HULL, repairZone = "Wing" }
 		)
 		CollectionService:AddTag(wing, Refs.Tags.Wing)
 	end
@@ -138,7 +150,12 @@ function PlaneRig.build(spawnCf: CFrame): Model
 			if side < 0 then "EngineLeft" else "EngineRight",
 			Vector3.new(5, 2.4, 2.4),
 			CFrame.new(8 * side, 0.8, 2) * CFrame.Angles(0, math.rad(90), 0),
-			{ color = COLOR_DARK, material = Enum.Material.Metal, shape = Enum.PartType.Cylinder }
+			{
+				color = COLOR_DARK,
+				material = Enum.Material.Metal,
+				shape = Enum.PartType.Cylinder,
+				repairZone = "Engine",
+			}
 		)
 		engine:SetAttribute("EngineHealth", 100)
 		CollectionService:AddTag(engine, Refs.Tags.Engine)
@@ -201,6 +218,43 @@ function PlaneRig.build(spawnCf: CFrame): Model
 		dispensePrompt.Name = "DispensePrompt"
 		dispensePrompt.ActionText = "Take " .. entry.item
 		dispensePrompt.ObjectText = "Galley"
+		dispensePrompt.HoldDuration = 0.25
+		dispensePrompt.MaxActivationDistance = 6
+		dispensePrompt.RequiresLineOfSight = false
+		dispensePrompt.Parent = dispenser
+	end
+
+	-- Repair locker: cockpit-side wall, dispensing the maintenance tools.
+	addPart("RepairLocker", Vector3.new(1, 2.5, 4), CFrame.new(-3.4, 1.75, -18.5), {
+		color = COLOR_ACCENT,
+		material = Enum.Material.Metal,
+	})
+	local repairItems = {
+		{ item = "Blowtorch", label = "Blowtorch", color = Color3.fromRGB(60, 90, 140) },
+		{ item = "Hammer", label = "Hammer", color = Color3.fromRGB(120, 110, 100) },
+		{
+			item = "FireExtinguisher",
+			label = "Fire Extinguisher",
+			color = Color3.fromRGB(200, 40, 30),
+		},
+		{ item = "IceAxe", label = "Ice Axe", color = Color3.fromRGB(160, 200, 210) },
+	}
+	for index, entry in repairItems do
+		local row = math.floor((index - 1) / 2)
+		local column = (index - 1) % 2
+		local dispenser = addPart(
+			"Dispenser" .. entry.item,
+			Vector3.new(0.7, 0.9, 0.9),
+			CFrame.new(-2.6, 1.3 + row * 1.2, -19.5 + column * 2),
+			{ color = entry.color, material = Enum.Material.Metal }
+		)
+		dispenser:SetAttribute("Item", entry.item)
+		CollectionService:AddTag(dispenser, Refs.Tags.Dispenser)
+
+		local dispensePrompt = Instance.new("ProximityPrompt")
+		dispensePrompt.Name = "DispensePrompt"
+		dispensePrompt.ActionText = "Take " .. entry.label
+		dispensePrompt.ObjectText = "Repair Locker"
 		dispensePrompt.HoldDuration = 0.25
 		dispensePrompt.MaxActivationDistance = 6
 		dispensePrompt.RequiresLineOfSight = false

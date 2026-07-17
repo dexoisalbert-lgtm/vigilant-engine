@@ -22,9 +22,11 @@ type HandleSpec = {
 	color: Color3,
 	cylinder: boolean?,
 	uprightGrip: boolean?,
+	repairKind: string?, -- matches a part's RepairKind for DamageService repairs
 }
 
 local HANDLE_SPECS: { [string]: HandleSpec } = {
+	-- Cabin service items.
 	Coffee = {
 		size = Vector3.new(1, 0.8, 0.8),
 		color = Color3.fromRGB(250, 245, 240),
@@ -45,6 +47,29 @@ local HANDLE_SPECS: { [string]: HandleSpec } = {
 		size = Vector3.new(2.4, 0.12, 1.6),
 		color = Color3.fromRGB(200, 200, 205),
 	},
+	-- Repair tools (dispensed from the cockpit-side locker).
+	Blowtorch = {
+		size = Vector3.new(0.5, 1.1, 0.5),
+		color = Color3.fromRGB(60, 90, 140),
+		repairKind = "Weld",
+	},
+	Hammer = {
+		size = Vector3.new(0.6, 1.5, 0.6),
+		color = Color3.fromRGB(120, 110, 100),
+		repairKind = "Hammer",
+	},
+	FireExtinguisher = {
+		size = Vector3.new(1.4, 0.8, 0.8),
+		color = Color3.fromRGB(200, 40, 30),
+		cylinder = true,
+		uprightGrip = true,
+		repairKind = "Extinguisher",
+	},
+	IceAxe = {
+		size = Vector3.new(0.5, 1.6, 0.5),
+		color = Color3.fromRGB(160, 200, 210),
+		repairKind = "IceAxe",
+	},
 }
 
 local function buildTemplate(item: string, spec: HandleSpec): Tool
@@ -52,6 +77,9 @@ local function buildTemplate(item: string, spec: HandleSpec): Tool
 	tool.Name = item
 	tool.CanBeDropped = true
 	tool:SetAttribute("Contents", item)
+	if spec.repairKind then
+		tool:SetAttribute("RepairKind", spec.repairKind)
+	end
 
 	local handle = Instance.new("Part")
 	handle.Name = "Handle"

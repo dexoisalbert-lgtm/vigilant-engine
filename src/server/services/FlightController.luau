@@ -202,8 +202,12 @@ function FlightController.start()
 		thrustForce.Force =
 			Vector3.new(0, 0, -mass * FlightConfig.MaxForwardAccel * effectiveThrottle)
 
+		-- Ice on the airframe is virtual weight the wings have to carry: it
+		-- subtracts straight from lift (DamageService publishes IceMass).
+		local iceMass = plane:GetAttribute("IceMass")
+		local iceWeight = (if typeof(iceMass) == "number" then iceMass else 0) * workspace.Gravity
 		local liftFraction = math.clamp(forwardSpeed / FlightConfig.StallSpeed, 0, 1)
-		liftForce.Force = Vector3.new(0, mass * workspace.Gravity * liftFraction, 0)
+		liftForce.Force = Vector3.new(0, mass * workspace.Gravity * liftFraction - iceWeight, 0)
 
 		local dragCoefficient = FlightConfig.MaxForwardAccel / FlightConfig.MaxSpeed
 		dragForce.Force = -velocity * mass * dragCoefficient

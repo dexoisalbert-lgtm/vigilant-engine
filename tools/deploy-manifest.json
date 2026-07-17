@@ -36,6 +36,11 @@
       "className": "ModuleScript"
     },
     {
+      "source": "src/shared/DamageConfig.luau",
+      "target": "ReplicatedStorage/VEShared/DamageConfig",
+      "className": "ModuleScript"
+    },
+    {
       "source": "src/server/Main.server.luau",
       "target": "ServerScriptService/VEServer/Main",
       "className": "Script"

@@ -63,6 +63,26 @@ wander the cabin and shove crew. Periodic turbulence tosses every unbuckled
 occupant (players included); buckled ones are safe. Passengers who get thrown
 out of the plane do not survive the experience.
 
+## Maintenance crew (Phase 3)
+
+While airborne, hazards fire at random: hull cracks, engine fires, wing
+icing, and lightning strikes. Repair tools come from the red locker beside
+the cockpit; each damaged part shows a repair prompt that only works with the
+matching tool equipped (+score on completion).
+
+| Damage | Tool | If ignored |
+| --- | --- | --- |
+| Cracked hull panel | Blowtorch (weld) | Panel tears off entirely |
+| Missing panel / dead engine mount | Hammer | Permanent breach / lost thrust |
+| Engine fire | Fire Extinguisher | Engine health drains to 0, engine detaches |
+| Iced wing | Ice Axe (multiple hacks) | Ice weight drags the plane down |
+
+Cracked or missing hull panels depressurize the cabin: anyone unbuckled near
+the breach gets pulled toward it — hold onto something. Engine health feeds
+straight into available thrust, and detached engines can be rebuilt (to 30%)
+by hammering the empty mount. `HullIntegrity` and `IceMass` are published as
+attributes on the plane model.
+
 ## Tooling
 
 - [Rokit](https://github.com/rojo-rbx/rokit) pins tools (`rokit.toml`)
