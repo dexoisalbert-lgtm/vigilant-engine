@@ -1,8 +1,0 @@
-# Roblox Studio lock/backup files
-*.rbxl.lock
-*.rbxlx.lock
-*.rbxm
-
-# Local tool state
-sourcemap.json
-/.tools/

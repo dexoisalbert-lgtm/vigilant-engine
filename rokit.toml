@@ -1,4 +1,0 @@
-# Pinned toolchain for vigilant-engine. Run `rokit install`.
-[tools]
-selene = "Kampfkarren/selene@0.28.0"
-stylua = "JohnnyMorganz/StyLua@2.0.2"
