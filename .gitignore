@@ -1,0 +1,29 @@
+# Unreal generated
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/*/**
+!Build/*/
+!Build/**/*.ico
+!Build/**/*.png
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.VC.db
+*.VC.opendb
+*.xcworkspace
+*.xcodeproj
+
+# Engine-free core test build
+Tools/CoreTests/build/
+
+# OS
+.DS_Store
+Thumbs.db

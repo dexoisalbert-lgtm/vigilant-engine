@@ -1,5 +1,7 @@
 # PALEOTRENCH — Game Plan
 
+> Living design document. Originally the approved development plan; updated as decisions change. Current progress is tracked in the README.
+
 ## 1. Context
 
 You want a first-person underwater horror game in Unreal Engine, built in this repo (`dexoisalbert-lgtm/vigilant-engine`), PC first (Steam, KB/M + gamepad), mobile later (free with ads/IAP). A scuba diver is pulled through a wormhole into a prehistoric cave system and must kill four bosses, collect shards, and repair a time machine before oxygen runs out.
@@ -40,7 +42,7 @@ Decisions locked from your answers:
 ## 2. Step 0 — Repo reset (needs your go-ahead when we start)
 
 The repo currently contains a complete Roblox Luau plane game (7 commits, 41 files: `src/`, `docs/GAME_PLAN.md`, `rokit.toml`, etc.).
-1. Tag the last Roblox commit `archive/roblox-plane-game` so it stays recoverable.
+1. Done: the Roblox project was removed; it stays recoverable from git history (last commit `32886ff`).
 2. `git rm` everything; commit "Remove previous project".
 3. Add Unreal `.gitignore`, `.gitattributes` with **Git LFS** for `*.uasset`, `*.umap`, audio, textures.
 4. All work goes on branch `ccr-c50880a2-g0siyj`; no PR unless you ask.
