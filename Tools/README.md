@@ -13,3 +13,12 @@
 The M1 preparation log is `Saved/Logs/M1-Prepare.txt`; `CollectLogs.bat`
 includes it. A success marker is written only after both the imported table
 and map have been saved. The generated `.umap` and `.uasset` use Git LFS.
+
+## Live editor control (`ue_live.py`)
+
+Drives the open editor through Unreal's built-in Python remote execution
+(local machine only), so most changes no longer need a close/reopen:
+`ping`, `livecode` (Live Coding compile of `.cpp` body changes), `tuning`
+(reimport `Data/SwimTuning.csv`), `play`, `stop`, `exec`, `file`.
+Header changes (new members, UPROPERTYs, classes) still need `Build.bat` with
+the editor closed.
