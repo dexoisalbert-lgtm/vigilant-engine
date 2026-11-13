@@ -5,6 +5,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/World.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/PlayerController.h"
@@ -13,6 +14,13 @@
 #include "InputModifiers.h"
 #include "Paleotrench.h"
 #include "Player/PaleotrenchSwimMovement.h"
+
+namespace
+{
+	// Q/E lean: maximum head tilt (degrees) and sideways peek slide (cm).
+	constexpr double LeanAngle = 12.0;
+	constexpr double LeanPeekDistance = 35.0;
+}
 
 APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UPaleotrenchSwimMovement>(CharacterMovementComponentName))
@@ -208,7 +216,8 @@ void APaleotrenchDiver::Tick(float DeltaSeconds)
 	ViewPitch = FMath::Clamp(ViewPitch + Look.Y * PitchSign, -MaxViewPitch, MaxViewPitch);
 	// Lean: hold Q/E to tilt, release to drift back level. A critically damped
 	// spring gives smooth ease-in/ease-out instead of a constant-rate roll.
-	const double LeanTarget = Settings.RollRate > 0 ? -RollInput * MaxViewRoll : 0.0;
+	// Q leans left, E leans right (positive roll tips the right side down).
+	const double LeanTarget = Settings.RollRate > 0 ? RollInput * LeanAngle : 0.0;
 	const double LeanOmega = 7.0;
 	const double LeanAccel = LeanOmega * LeanOmega * (LeanTarget - ViewRoll) - 2.0 * LeanOmega * LeanVelocity;
 	LeanVelocity += LeanAccel * Dt;
@@ -268,8 +277,25 @@ void APaleotrenchDiver::UpdateCameraFeel(float Dt, bool bSprinting)
 	DiveCamera->SetWorldRotation(Shown);
 
 	const FVector ViewOffset(0.0, Sway * 1.2 * StrokeAmount, Breath * 0.9 + Stroke * 1.8 * StrokeAmount);
-	DiveCamera->SetRelativeLocation(CameraBaseLocation
-		+ GetActorQuat().Inverse().RotateVector(CameraOrientation.RotateVector(ViewOffset)));
+	// Peek: leaning also slides the head sideways (horizontally, along the
+	// heading) so the player can look around corners. The slide follows the
+	// sprung lean angle, so it eases in and out with the tilt.
+	const FVector PeekOffset = FRotator(0.0, ViewYaw, 0.0).Quaternion().GetRightVector()
+		* (FMath::Clamp(ViewRoll / LeanAngle, -1.0, 1.0) * LeanPeekDistance);
+	const FVector Pivot = GetActorLocation() + GetActorQuat().RotateVector(CameraBaseLocation);
+	FVector Desired = Pivot + PeekOffset + CameraOrientation.RotateVector(ViewOffset);
+	// Never push the camera into a wall: sweep a small sphere from the head pivot.
+	if (const UWorld* World = GetWorld())
+	{
+		FHitResult Hit;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(DiverPeek), false, this);
+		if (World->SweepSingleByChannel(Hit, Pivot, Desired, FQuat::Identity, ECC_Camera,
+			FCollisionShape::MakeSphere(10.0f), Params))
+		{
+			Desired = Hit.Location;
+		}
+	}
+	DiveCamera->SetWorldLocation(Desired);
 
 	// Flashlight: trails the view when turning (~0.2 s) but never more than 15°.
 	LampOrientation = FQuat::Slerp(LampOrientation, Shown, Ease(9.0)).GetNormalized();
