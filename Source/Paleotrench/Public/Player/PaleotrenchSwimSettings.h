@@ -20,9 +20,9 @@ struct PALEOTRENCH_API FPaleotrenchSwimSettings : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swim")
 	float BuoyancyAcceleration = 0.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	float MouseSensitivity = 0.08f;
+	float MouseSensitivity = 2.5f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	float GamepadTurnRate = 90.0f;
+	float GamepadTurnRate = 150.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
 	float RollRate = 60.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
