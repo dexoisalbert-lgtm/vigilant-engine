@@ -105,7 +105,8 @@ private:
 	void UpdateDistress(float Dt);
 	void UpdateMaskLeds();
 	void HandleGearEvents(const FPaleotrenchGearEvents& Events);
-	// Shows a short message on the wrist; bGlance briefly raises the wrist.
+	// Shows a short message on the wrist's status line (seen when it is raised).
+	// bGlance is kept for a future accessibility option; it no longer raises it.
 	void PostNotice(const FText& Text, const FLinearColor& Color, bool bGlance);
 	float GetDepthMetres() const;
 

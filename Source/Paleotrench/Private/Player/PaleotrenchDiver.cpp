@@ -580,7 +580,8 @@ void APaleotrenchDiver::UpdateLamp(float Dt)
 
 void APaleotrenchDiver::UpdateWrist(float Dt)
 {
-	const bool bWanted = (bWristUp || Gear->IsBusy() || Clock < GlanceUntil) && !Gear->IsBlackedOut();
+	// Only the player raises the wrist (Tab / gamepad X); nothing raises it for them.
+	const bool bWanted = bWristUp && !Gear->IsBlackedOut();
 	WristBlend = FMath::Clamp(WristBlend + (bWanted ? Dt : -Dt) / WristRaiseSeconds, 0.0f, 1.0f);
 	const bool bShown = WristBlend > 0.001f;
 	if (WristScreen->IsVisible() != bShown)
