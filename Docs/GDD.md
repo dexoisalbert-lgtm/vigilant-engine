@@ -2,6 +2,12 @@
 
 > Living design document. Originally the approved development plan; updated as decisions change. Current progress is tracked in the README.
 
+**Implementation checkpoint (2026-11-13):** M1 swimming, camera, Enhanced Input,
+underwater greybox tank and CSV import tooling are written. The 25 engine-free
+tests pass. M0's first Unreal compile and M1's on-device acceptance remain
+pending; see [Playtests/M1.md](Playtests/M1.md). The PDF is an earlier plan
+snapshot; this document and the README track current implementation status.
+
 ## 1. Context
 
 You want a first-person underwater horror game in Unreal Engine, built in this repo (`dexoisalbert-lgtm/vigilant-engine`), PC first (Steam, KB/M + gamepad), mobile later (free with ads/IAP). A scuba diver is pulled through a wormhole into a prehistoric cave system and must kill four bosses, collect shards, and repair a time machine before oxygen runs out.

@@ -5,7 +5,7 @@
 #include "PaleotrenchGameMode.generated.h"
 
 // Default game mode for every level. Set as the project default in
-// Config/DefaultEngine.ini. Gains the diver pawn and controller in M1.
+// Config/DefaultEngine.ini. Spawns the C++ diver without a Blueprint subclass.
 UCLASS()
 class PALEOTRENCH_API APaleotrenchGameMode : public AGameModeBase
 {

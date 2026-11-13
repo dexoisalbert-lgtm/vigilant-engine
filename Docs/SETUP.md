@@ -50,16 +50,19 @@ git checkout ccr-c50880a2-g0siyj
 
 1. Double-click **`Tools\Build.bat`**. The first build takes several minutes.
    Wait for `==== BUILD SUCCEEDED ====`.
-2. Double-click **`Paleotrench.uproject`**. The first launch compiles shaders
+2. Double-click **`Tools\PrepareM1.bat`** with the editor closed. Wait for
+   `M1 PREPARATION SUCCEEDED`. This creates the test tank and imports tuning.
+3. Double-click **`Paleotrench.uproject`**. The first launch compiles shaders
    and can take 10–20 minutes; later launches are fast.
-3. Follow [Playtests/M0.md](Playtests/M0.md) to confirm everything works.
+4. Follow [Playtests/M1.md](Playtests/M1.md) to verify the build and swimming.
 
 ## Everyday loop
 
 1. `git pull` in Git Bash (close the Unreal Editor first).
 2. Double-click `Tools\Build.bat`.
-3. Open `Paleotrench.uproject` and follow the current playtest checklist.
-4. If anything fails or looks wrong: double-click `Tools\CollectLogs.bat` and
+3. If `Data/SwimTuning.csv` changed, rerun `Tools\PrepareM1.bat`.
+4. Open `Paleotrench.uproject` and follow the current playtest checklist.
+5. If anything fails or looks wrong: double-click `Tools\CollectLogs.bat` and
    paste the result into the chat (it is copied to your clipboard automatically).
 
 ## If something goes wrong
@@ -68,6 +71,7 @@ git checkout ccr-c50880a2-g0siyj
 |---|---|
 | `Unreal Engine 5.7 was not found` | Engine is not installed, or is in a custom folder. Finish step 2, or tell me the folder. |
 | `BUILD FAILED` | Run `Tools\CollectLogs.bat` and paste the result. |
+| Missing `M1_TestTank` map, or `M1 preparation failed` | Run `Build.bat`, then `PrepareM1.bat` with Unreal closed. If it still fails, collect logs. |
 | "Missing modules… Would you like to rebuild them now?" when opening the project | Click **No**, run `Tools\Build.bat` instead (it gives readable errors). |
 | "This project was made with a different version of the engine" | You installed a version other than 5.7. Install 5.7. |
 | The build complains about a missing compiler/toolchain/SDK version | Paste the message; it names the exact Visual Studio component to add. |

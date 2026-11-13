@@ -24,6 +24,10 @@ Plugins/*/Intermediate/
 # Engine-free core test build
 Tools/CoreTests/build/
 
+# Python editor-tool bytecode
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store
 Thumbs.db
