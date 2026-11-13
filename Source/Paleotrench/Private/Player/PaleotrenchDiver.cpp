@@ -66,7 +66,9 @@ void APaleotrenchDiver::BeginPlay()
 	Movement->SetSwimTuning(Settings.ToCore());
 	Movement->SetMovementMode(MOVE_Custom, UPaleotrenchSwimMovement::DivingMode);
 	Movement->PrimaryComponentTick.AddPrerequisite(this, PrimaryActorTick);
-	ViewOrientation = GetActorQuat();
+	ViewYaw = GetActorRotation().Yaw;
+	ViewPitch = ViewRoll = 0.0;
+	ViewOrientation = FRotator(ViewPitch, ViewYaw, ViewRoll).Quaternion();
 	DiveCamera->SetFieldOfView(Settings.FieldOfView);
 	UE_LOG(LogPaleotrench, Display, TEXT("M1 diver ready: cruise %.0f cm/s, sprint %.0f cm/s, tuning %s"),
 		Settings.CruiseSpeed, Settings.SprintSpeed, bLoaded ? TEXT("CSV") : TEXT("fallback"));
@@ -196,10 +198,10 @@ void APaleotrenchDiver::Tick(float DeltaSeconds)
 	const FVector2D Look = (MouseDelta * Settings.MouseSensitivity
 		+ StickLook * Settings.GamepadTurnRate * Dt) * TurnScale;
 	const double PitchSign = Settings.bInvertLookY ? -1.0 : 1.0;
-	ViewOrientation = (ViewOrientation
-		* FQuat(FVector::UpVector, FMath::DegreesToRadians(Look.X))
-		* FQuat(FVector::RightVector, FMath::DegreesToRadians(-Look.Y * PitchSign))
-		* FQuat(FVector::ForwardVector, FMath::DegreesToRadians(RollInput * Settings.RollRate * Dt * TurnScale))).GetNormalized();
+	ViewYaw = FRotator::NormalizeAxis(ViewYaw + Look.X);
+	ViewPitch = FMath::Clamp(ViewPitch + Look.Y * PitchSign, -MaxViewPitch, MaxViewPitch);
+	ViewRoll = FMath::Clamp(ViewRoll - RollInput * Settings.RollRate * Dt * TurnScale, -MaxViewRoll, MaxViewRoll);
+	ViewOrientation = FRotator(ViewPitch, ViewYaw, ViewRoll).Quaternion();
 	MouseDelta = FVector2D::ZeroVector;
 	DiveCamera->SetWorldRotation(ViewOrientation);
 	AddMovementInput(ViewOrientation.GetForwardVector(), MoveInput.X);
@@ -238,7 +240,8 @@ void APaleotrenchDiver::ToggleHeadlamp() { Headlamp->ToggleVisibility(); }
 void APaleotrenchDiver::LevelView()
 {
 	// Explicit comfort control: reset pitch/roll while retaining heading.
-	ViewOrientation = FRotator(0, ViewOrientation.Rotator().Yaw, 0).Quaternion();
+	ViewPitch = ViewRoll = 0.0;
+	ViewOrientation = FRotator(ViewPitch, ViewYaw, ViewRoll).Quaternion();
 }
 
 void APaleotrenchDiver::ClearInput()

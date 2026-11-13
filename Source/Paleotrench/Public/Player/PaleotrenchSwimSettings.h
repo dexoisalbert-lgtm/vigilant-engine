@@ -12,9 +12,9 @@ struct PALEOTRENCH_API FPaleotrenchSwimSettings : public FTableRowBase
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swim")
-	float CruiseSpeed = 240.0f;
+	float CruiseSpeed = 340.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swim")
-	float SprintSpeed = 420.0f;
+	float SprintSpeed = 600.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swim")
 	float DragPerSecond = 2.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swim")

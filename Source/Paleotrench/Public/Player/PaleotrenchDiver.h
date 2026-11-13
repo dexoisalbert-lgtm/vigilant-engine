@@ -77,6 +77,13 @@ private:
 
 	TWeakObjectPtr<UEnhancedInputLocalPlayerSubsystem> InputSubsystem;
 	FPaleotrenchSwimSettings Settings;
+	// Head-like view limits: look up/down stops short of vertical and roll is a
+	// lean, so the camera can never flip over. Yaw is unlimited.
+	static constexpr double MaxViewPitch = 80.0;
+	static constexpr double MaxViewRoll = 40.0;
+	double ViewYaw = 0.0;
+	double ViewPitch = 0.0;
+	double ViewRoll = 0.0;
 	FQuat ViewOrientation = FQuat::Identity;
 	FVector MoveInput = FVector::ZeroVector;
 	FVector2D MouseDelta = FVector2D::ZeroVector;
