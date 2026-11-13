@@ -39,6 +39,8 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 	Headlamp->SetOuterConeAngle(36.0f);
 	Headlamp->SetCastShadows(true);
 	Headlamp->SetMobility(EComponentMobility::Movable);
+	// The lamp follows the camera's position but lags its rotation (see Tick).
+	Headlamp->SetUsingAbsoluteRotation(true);
 	SwimSettingsTable = TSoftObjectPtr<UDataTable>(
 		FSoftObjectPath(TEXT("/Game/Data/DT_SwimTuning.DT_SwimTuning")));
 }
@@ -69,6 +71,10 @@ void APaleotrenchDiver::BeginPlay()
 	ViewYaw = GetActorRotation().Yaw;
 	ViewPitch = ViewRoll = 0.0;
 	ViewOrientation = FRotator(ViewPitch, ViewYaw, ViewRoll).Quaternion();
+	CameraOrientation = LampOrientation = ViewOrientation;
+	CameraBaseLocation = DiveCamera->GetRelativeLocation();
+	DiveCamera->SetWorldRotation(CameraOrientation);
+	Headlamp->SetWorldRotation(LampOrientation);
 	DiveCamera->SetFieldOfView(Settings.FieldOfView);
 	UE_LOG(LogPaleotrench, Display, TEXT("M1 diver ready: cruise %.0f cm/s, sprint %.0f cm/s, tuning %s"),
 		Settings.CruiseSpeed, Settings.SprintSpeed, bLoaded ? TEXT("CSV") : TEXT("fallback"));
@@ -200,10 +206,16 @@ void APaleotrenchDiver::Tick(float DeltaSeconds)
 	const double PitchSign = Settings.bInvertLookY ? -1.0 : 1.0;
 	ViewYaw = FRotator::NormalizeAxis(ViewYaw + Look.X);
 	ViewPitch = FMath::Clamp(ViewPitch + Look.Y * PitchSign, -MaxViewPitch, MaxViewPitch);
-	ViewRoll = FMath::Clamp(ViewRoll - RollInput * Settings.RollRate * Dt * TurnScale, -MaxViewRoll, MaxViewRoll);
+	// Lean: hold Q/E to tilt, release to drift back level. A critically damped
+	// spring gives smooth ease-in/ease-out instead of a constant-rate roll.
+	const double LeanTarget = Settings.RollRate > 0 ? -RollInput * MaxViewRoll : 0.0;
+	const double LeanOmega = 7.0;
+	const double LeanAccel = LeanOmega * LeanOmega * (LeanTarget - ViewRoll) - 2.0 * LeanOmega * LeanVelocity;
+	LeanVelocity += LeanAccel * Dt;
+	ViewRoll = FMath::Clamp(ViewRoll + LeanVelocity * Dt, -MaxViewRoll, MaxViewRoll);
 	ViewOrientation = FRotator(ViewPitch, ViewYaw, ViewRoll).Quaternion();
 	MouseDelta = FVector2D::ZeroVector;
-	DiveCamera->SetWorldRotation(ViewOrientation);
+	UpdateCameraFeel(Dt, bSprinting);
 	AddMovementInput(ViewOrientation.GetForwardVector(), MoveInput.X);
 	AddMovementInput(ViewOrientation.GetRightVector(), MoveInput.Y);
 	AddMovementInput(ViewOrientation.GetUpVector(), MoveInput.Z);
@@ -224,6 +236,52 @@ void APaleotrenchDiver::Tick(float DeltaSeconds)
 	}
 }
 
+void APaleotrenchDiver::UpdateCameraFeel(float Dt, bool bSprinting)
+{
+	const auto Ease = [Dt](double Rate) { return 1.0 - FMath::Exp(-Rate * Dt); };
+
+	// Head weight: the camera eases toward the intended view (~50 ms).
+	CameraOrientation = FQuat::Slerp(CameraOrientation, ViewOrientation, Ease(20.0)).GetNormalized();
+
+	// Swim rhythm: bob strength follows actual speed; one bob per fin kick.
+	const FVector Velocity = GetVelocity();
+	const double SpeedFraction = FMath::Clamp(Velocity.Size() / FMath::Max(Settings.CruiseSpeed, 1.0f), 0.0, 1.5);
+	const double StrokeTarget = MoveInput.IsNearlyZero() ? 0.0 : SpeedFraction;
+	StrokeAmount = FMath::Lerp(StrokeAmount, StrokeTarget, Ease(3.0));
+	const double KickRate = (bSprinting ? 1.5 : 1.0) / FMath::Max(Settings.FinKickInterval, 0.1f);
+	StrokePhase = FMath::Fmod(StrokePhase + UE_TWO_PI * KickRate * Dt, UE_TWO_PI * 2.0);
+	BreathPhase = FMath::Fmod(BreathPhase + UE_TWO_PI * 0.22 * Dt, UE_TWO_PI);
+
+	// Slight bank into strafes, like a body tilting as it moves sideways.
+	const double Lateral = FVector::DotProduct(Velocity, ViewOrientation.GetRightVector())
+		/ FMath::Max(Settings.CruiseSpeed, 1.0f);
+	StrafeBank = FMath::Lerp(StrafeBank, FMath::Clamp(Lateral, -1.5, 1.5) * 2.5, Ease(4.0));
+
+	const double Breath = FMath::Sin(BreathPhase);
+	const double Stroke = FMath::Sin(StrokePhase);
+	const double Sway = FMath::Sin(StrokePhase * 0.5);
+	const FQuat SwayRotation = FRotator(
+		Breath * 0.35 + Stroke * 0.6 * StrokeAmount,
+		Sway * 0.4 * StrokeAmount,
+		StrafeBank + Sway * 0.8 * StrokeAmount).Quaternion();
+	const FQuat Shown = CameraOrientation * SwayRotation;
+	DiveCamera->SetWorldRotation(Shown);
+
+	const FVector ViewOffset(0.0, Sway * 1.2 * StrokeAmount, Breath * 0.9 + Stroke * 1.8 * StrokeAmount);
+	DiveCamera->SetRelativeLocation(CameraBaseLocation
+		+ GetActorQuat().Inverse().RotateVector(CameraOrientation.RotateVector(ViewOffset)));
+
+	// Flashlight: trails the view when turning (~0.2 s) but never more than 15°.
+	LampOrientation = FQuat::Slerp(LampOrientation, Shown, Ease(9.0)).GetNormalized();
+	const double MaxLampLag = FMath::DegreesToRadians(15.0);
+	const double LampLag = LampOrientation.AngularDistance(Shown);
+	if (LampLag > MaxLampLag)
+	{
+		LampOrientation = FQuat::Slerp(Shown, LampOrientation, MaxLampLag / LampLag).GetNormalized();
+	}
+	Headlamp->SetWorldRotation(LampOrientation);
+}
+
 FVector APaleotrenchDiver::GetPawnViewLocation() const { return DiveCamera->GetComponentLocation(); }
 FRotator APaleotrenchDiver::GetViewRotation() const { return ViewOrientation.Rotator(); }
 void APaleotrenchDiver::Move(const FInputActionValue& Value) { MoveInput = Value.Get<FVector>().GetClampedToMaxSize(1.0); }
@@ -240,7 +298,7 @@ void APaleotrenchDiver::ToggleHeadlamp() { Headlamp->ToggleVisibility(); }
 void APaleotrenchDiver::LevelView()
 {
 	// Explicit comfort control: reset pitch/roll while retaining heading.
-	ViewPitch = ViewRoll = 0.0;
+	ViewPitch = ViewRoll = LeanVelocity = 0.0;
 	ViewOrientation = FRotator(ViewPitch, ViewYaw, ViewRoll).Quaternion();
 }
 

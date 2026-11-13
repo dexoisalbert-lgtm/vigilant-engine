@@ -84,7 +84,18 @@ private:
 	double ViewYaw = 0.0;
 	double ViewPitch = 0.0;
 	double ViewRoll = 0.0;
+	double LeanVelocity = 0.0;
+	// Intended view (drives movement) vs what the camera shows: the camera eases
+	// toward the intent and adds breathing, fin-kick bob and strafe bank.
 	FQuat ViewOrientation = FQuat::Identity;
+	FQuat CameraOrientation = FQuat::Identity;
+	FQuat LampOrientation = FQuat::Identity;
+	FVector CameraBaseLocation = FVector::ZeroVector;
+	double BreathPhase = 0.0;
+	double StrokePhase = 0.0;
+	double StrokeAmount = 0.0;
+	double StrafeBank = 0.0;
+	void UpdateCameraFeel(float Dt, bool bSprinting);
 	FVector MoveInput = FVector::ZeroVector;
 	FVector2D MouseDelta = FVector2D::ZeroVector;
 	FVector2D StickLook = FVector2D::ZeroVector;
