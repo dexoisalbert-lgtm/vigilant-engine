@@ -5,7 +5,7 @@ Config/DefaultEngine.ini). Commands:
 
   python Tools/ue_live.py ping               check the editor is reachable
   python Tools/ue_live.py livecode           Live Coding compile of .cpp changes
-  python Tools/ue_live.py tuning             reimport Data/SwimTuning.csv
+  python Tools/ue_live.py tables             validate and reimport every Data/*.csv table
   python Tools/ue_live.py play | stop        start / stop Play In Editor
   python Tools/ue_live.py exec "<python>"    run Python inside the editor
   python Tools/ue_live.py file <script.py>   run a Python file inside the editor
@@ -23,15 +23,7 @@ ENGINE_PY = Path(r"E:\UE_5.7\Engine\Plugins\Experimental\PythonScriptPlugin\Cont
 sys.path.insert(0, str(ENGINE_PY))
 import remote_execution  # noqa: E402  (ships with Unreal)
 
-TUNING = r'''
-import unreal
-csv = r"{csv}"
-table = unreal.EditorAssetLibrary.load_asset("/Game/Data/DT_SwimTuning")
-struct = unreal.load_object(None, "/Script/Paleotrench.PaleotrenchSwimSettings")
-ok = unreal.DataTableFunctionLibrary.fill_data_table_from_csv_file(table, csv, struct)
-ok = ok and unreal.EditorAssetLibrary.save_loaded_asset(table)
-print("TUNING REIMPORTED" if ok else "TUNING REIMPORT FAILED")
-'''.format(csv=PROJECT / "Data" / "SwimTuning.csv")
+PREPARE = (PROJECT / "Tools" / "Editor" / "prepare.py").as_posix()
 
 PLAY = '''
 import unreal
@@ -105,8 +97,9 @@ def main(argv):
     command = argv[1]
     if command == "ping":
         return 0 if run('print("EDITOR REACHABLE")') else 1
-    if command == "tuning":
-        return 0 if run(TUNING) else 1
+    if command in ("tables", "tuning"):
+        # Same validation and import as Prepare.bat, without touching the map.
+        return 0 if run(f"{PREPARE} --tables-only") else 1
     if command == "play":
         return 0 if run(PLAY) else 1
     if command == "stop":

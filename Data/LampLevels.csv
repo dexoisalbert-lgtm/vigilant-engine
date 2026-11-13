@@ -1,0 +1,6 @@
+Name,DrainPerSecond,IntensityLumens,AttenuationRadius,InnerConeAngle,OuterConeAngle
+Off,0,0,1000,15,30
+Low,0.02,450,1300,14,28
+Medium,0.05,1400,2200,18,36
+High,0.12,4000,3400,22,44
+Burst,1.2,9000,3600,30,55

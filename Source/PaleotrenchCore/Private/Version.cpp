@@ -1,13 +1,14 @@
 #include "PaleotrenchCore/Version.h"
 
 #include "PaleotrenchCore/Random.h"
+#include "PaleotrenchCore/SaveData.h"
 #include "PaleotrenchCore/Seed.h"
 
 namespace pt
 {
 	const char* CoreVersion()
 	{
-		return "0.1.0";
+		return "0.2.0";
 	}
 
 	bool RunSelfCheck()
@@ -31,6 +32,13 @@ namespace pt
 			return false;
 		}
 		if (DeriveCaveSeed(1234567890123456789ULL, ECave::Livyatan) != 0x9DFCD8CBFA9025C6ULL)
+		{
+			return false;
+		}
+
+		// Save files must checksum identically everywhere (standard CRC-32 check value).
+		const char* Check = "123456789";
+		if (Crc32(reinterpret_cast<const uint8_t*>(Check), 9) != 0xCBF43926u)
 		{
 			return false;
 		}

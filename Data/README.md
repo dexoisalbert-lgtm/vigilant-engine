@@ -5,9 +5,15 @@ rates, upgrade costs, spawn tables). Files here are plain CSV/JSON so they can
 be reviewed and changed without opening the editor; they are imported into
 DataTables by the editor tooling.
 
-M1 introduces `SwimTuning.csv`. `Tools/PrepareM1.bat` validates the Default row
-and imports it as `/Game/Data/DT_SwimTuning` using `FPaleotrenchSwimSettings`.
-The diver loads that row at BeginPlay. CSV-only changes need a reimport, not a
-C++ rebuild. See [the M1 checklist](../Docs/Playtests/M1.md#adjust-feel) for units
-and settings. Runtime validation falls back to safe defaults with a log warning
-if the table is missing or invalid.
+| File | DataTable | Row struct | Units and meaning |
+|---|---|---|---|
+| `SwimTuning.csv` | `DT_SwimTuning` | `FPaleotrenchSwimSettings` | [M1 checklist](../Docs/Playtests/M1.md#adjust-feel) |
+| `OxygenTuning.csv` | `DT_OxygenTuning` | `FPaleotrenchOxygenSettings` | [M2 checklist](../Docs/Playtests/M2.md#adjust-the-numbers) |
+| `PowerTuning.csv` | `DT_PowerTuning` | `FPaleotrenchPowerSettings` | [M2 checklist](../Docs/Playtests/M2.md#adjust-the-numbers) |
+| `LampLevels.csv` | `DT_LampLevels` | `FPaleotrenchLampLevelSettings` | one row per lamp level |
+
+`Tools/Prepare.bat` validates every file (ranges and cross-checks such as
+critical below reserve) before importing any of them into `/Game/Data/`.
+CSV-only changes need a reimport, not a C++ rebuild; with the editor open,
+`python Tools/ue_live.py tables` does the same import live. Runtime validation
+falls back to safe defaults with a log warning if a table is missing or invalid.

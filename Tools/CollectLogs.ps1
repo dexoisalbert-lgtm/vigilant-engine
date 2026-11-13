@@ -3,7 +3,7 @@ $projectDir = Split-Path -Parent $PSScriptRoot
 $logDir     = Join-Path $projectDir 'Saved\Logs'
 $buildLog   = Join-Path $logDir 'UBT-Build.txt'
 $gameLog    = Join-Path $logDir 'Paleotrench.log'
-$prepareLog = Join-Path $logDir 'M1-Prepare.txt'
+$prepareLog = Join-Path $logDir 'Prepare.txt'
 $summary    = Join-Path $logDir 'Summary.txt'
 
 $out = New-Object System.Collections.Generic.List[string]
@@ -44,14 +44,14 @@ if (Test-Path $gameLog) {
 }
 
 $out.Add('')
-$out.Add('--- M1 preparation log ---')
+$out.Add('--- Preparation log ---')
 if (Test-Path $prepareLog) {
-    $hits = @(Select-String -Path $prepareLog -Pattern 'Error:|Warning:|Traceback|RuntimeError|LogPaleotrench|PALEOTRENCH M1' | Select-Object -Last 80)
+    $hits = @(Select-String -Path $prepareLog -Pattern 'Error:|Warning:|Traceback|RuntimeError|LogPaleotrench|PALEOTRENCH' | Select-Object -Last 80)
     foreach ($h in $hits) { $out.Add($h.Line) }
-    $out.Add('--- Last 20 lines of M1 preparation ---')
+    $out.Add('--- Last 20 lines of preparation ---')
     foreach ($line in (Get-Content $prepareLog -Tail 20)) { $out.Add($line) }
 } else {
-    $out.Add('(no M1 preparation log yet)')
+    $out.Add('(no preparation log yet)')
 }
 
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }

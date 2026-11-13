@@ -14,6 +14,9 @@ public class Paleotrench : ModuleRules
 			"InputCore",
 			"EnhancedInput",
 			"PaleotrenchCore",
+			"UMG",
+			"Slate",
+			"SlateCore",
 		});
 	}
 }

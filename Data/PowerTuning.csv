@@ -1,0 +1,2 @@
+Name,PackCapacity,StartPackFraction,LampCellCapacity,StartLampFraction,ChargeRatePerSecond,ChargeEfficiency,CrankRatePerSecond,CellLeakPerSecond,LowCellFraction,BurstSeconds
+Default,100,0.6,20,1,4,0.8,0.5,0,0.15,1.5

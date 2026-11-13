@@ -1,2 +1,2 @@
-Name,CruiseSpeed,SprintSpeed,DragPerSecond,BuoyancyAcceleration,MouseSensitivity,GamepadTurnRate,RollRate,SprintTurnScale,FieldOfView,bInvertLookY,FinKickInterval
-Default,340,600,2,0,2.5,150,60,0.65,85,False,0.8
+Name,CruiseSpeed,SprintSpeed,DragPerSecond,BuoyancyAcceleration,MouseSensitivity,GamepadTurnRate,RollRate,SprintTurnScale,FieldOfView,bInvertLookY,FinKickInterval,BusySpeedScale
+Default,340,600,2,0,2.5,150,60,0.65,85,False,0.8,0.55

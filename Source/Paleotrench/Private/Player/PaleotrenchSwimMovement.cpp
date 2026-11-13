@@ -18,7 +18,7 @@ float UPaleotrenchSwimMovement::GetMaxSpeed() const
 {
 	if (MovementMode == MOVE_Custom && CustomMovementMode == DivingMode)
 	{
-		return static_cast<float>(bSprinting ? Tuning.SprintSpeed : Tuning.CruiseSpeed);
+		return static_cast<float>((bSprinting ? Tuning.SprintSpeed : Tuning.CruiseSpeed) * SpeedScale);
 	}
 	return Super::GetMaxSpeed();
 }
@@ -36,6 +36,9 @@ void UPaleotrenchSwimMovement::PhysCustom(float DeltaTime, int32 Iterations)
 	}
 
 	const FVector Input = (Acceleration / FMath::Max(GetMaxAcceleration(), 1.0f)).GetClampedToMaxSize(1.0);
+	pt::SwimTuning Scaled = Tuning;
+	Scaled.CruiseSpeed *= SpeedScale;
+	Scaled.SprintSpeed *= SpeedScale;
 	float RemainingTime = FMath::Min(DeltaTime, 0.25f);
 	while (RemainingTime >= MIN_TICK_TIME && Iterations < MaxSimulationIterations && HasValidData())
 	{
@@ -43,7 +46,7 @@ void UPaleotrenchSwimMovement::PhysCustom(float DeltaTime, int32 Iterations)
 		const float TimeTick = GetSimulationTimeStep(RemainingTime, Iterations);
 		RemainingTime -= TimeTick;
 		const auto Step = pt::IntegrateSwim({Velocity.X, Velocity.Y, Velocity.Z},
-			{Input.X, Input.Y, Input.Z}, TimeTick, bSprinting, Tuning);
+			{Input.X, Input.Y, Input.Z}, TimeTick, bSprinting, Scaled);
 		Velocity = FVector(Step.Velocity.X, Step.Velocity.Y, Step.Velocity.Z);
 		const FVector Delta(Step.Displacement.X, Step.Displacement.Y, Step.Displacement.Z);
 

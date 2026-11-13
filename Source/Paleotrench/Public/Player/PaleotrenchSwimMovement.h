@@ -17,6 +17,8 @@ public:
 	static constexpr uint8 DivingMode = 0;
 	void SetSwimTuning(const pt::SwimTuning& InTuning) { Tuning = InTuning; }
 	void SetSprinting(bool bEnabled) { bSprinting = bEnabled; }
+	// Multiplies cruise and sprint speed (low oxygen, busy hands). 0.05-1.
+	void SetSpeedScale(float Scale) { SpeedScale = FMath::Clamp(Scale, 0.05f, 1.0f); }
 	virtual float GetMaxSpeed() const override;
 
 protected:
@@ -25,4 +27,5 @@ protected:
 private:
 	pt::SwimTuning Tuning;
 	bool bSprinting = false;
+	float SpeedScale = 1.0f;
 };

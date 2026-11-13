@@ -29,7 +29,18 @@ APaleotrenchTestTank::APaleotrenchTestTank()
 
 	// Interior: 40 x 30 x 16 metres. All six boundaries have swept collision.
 	Box(TEXT("Floor"), FVector(0, 0, -50), FVector(4200, 3200, 100));
-	Box(TEXT("Ceiling"), FVector(0, 0, 1650), FVector(4200, 3200, 100));
+	// The ceiling has a 4 x 4 m opening (X -1500..-1100, Y -200..200) under an
+	// air dome. Tools/Editor/prepare.py places the AirPocket actor in the dome
+	// at (-1300, 0, 1825) with half-size (200, 200, 125): keep them in step.
+	Box(TEXT("CeilingWest"), FVector(-1800, 0, 1650), FVector(600, 3200, 100));
+	Box(TEXT("CeilingEast"), FVector(500, 0, 1650), FVector(3200, 3200, 100));
+	Box(TEXT("CeilingSouth"), FVector(-1300, -900, 1650), FVector(400, 1400, 100));
+	Box(TEXT("CeilingNorth"), FVector(-1300, 900, 1650), FVector(400, 1400, 100));
+	Box(TEXT("DomeWest"), FVector(-1550, 0, 1825), FVector(100, 600, 250));
+	Box(TEXT("DomeEast"), FVector(-1050, 0, 1825), FVector(100, 600, 250));
+	Box(TEXT("DomeSouth"), FVector(-1300, -250, 1825), FVector(400, 100, 250));
+	Box(TEXT("DomeNorth"), FVector(-1300, 250, 1825), FVector(400, 100, 250));
+	Box(TEXT("DomeRoof"), FVector(-1300, 0, 2000), FVector(600, 600, 100));
 	Box(TEXT("WallWest"), FVector(-2050, 0, 800), FVector(100, 3200, 1600));
 	Box(TEXT("WallEast"), FVector(2050, 0, 800), FVector(100, 3200, 1600));
 	Box(TEXT("WallSouth"), FVector(0, -1550, 800), FVector(4000, 100, 1600));
@@ -49,13 +60,14 @@ APaleotrenchTestTank::APaleotrenchTestTank()
 		Box(FName(*FString::Printf(TEXT("Gate%dBottom"), Index)), FVector(X, 0, Z - 250), FVector(100, 360, 100));
 	}
 
-	// Depth ladder on the east wall; values are metres below the ceiling.
-	for (int32 Depth = 2; Depth <= 14; Depth += 2)
+	// Depth ladder on the east wall: metres below the dome's water line, the
+	// same depth the wrist computer shows.
+	for (int32 Depth = 2; Depth <= 16; Depth += 2)
 	{
 		auto* Mark = CreateDefaultSubobject<UTextRenderComponent>(
 			FName(*FString::Printf(TEXT("Depth%d"), Depth)));
 		Mark->SetupAttachment(RootComponent);
-		Mark->SetRelativeLocation(FVector(1980, -700, 1600 - Depth * 100));
+		Mark->SetRelativeLocation(FVector(1980, -700, SurfaceZ - Depth * 100));
 		Mark->SetRelativeRotation(FRotator(0, 180, 0));
 		Mark->SetText(FText::AsNumber(Depth));
 		Mark->SetWorldSize(60.0f);

@@ -1,0 +1,2 @@
+Name,TankCapacityBar,RestBarPerMinute,SwimBarPerMinute,SprintBarPerMinute,ExertionBarPerMinute,ReserveBar,CriticalBar,AirRefillBarPerSecond,SwapSeconds,StartSpareTanks,MaxSpareTanks,EmptyGraceSeconds,SlowestSwimScale
+Default,200,10,16,28,22,50,20,40,4,1,2,6,0.5

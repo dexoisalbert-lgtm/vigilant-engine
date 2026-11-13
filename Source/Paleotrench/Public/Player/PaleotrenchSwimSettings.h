@@ -5,7 +5,7 @@
 #include "PaleotrenchCore/Swim.h"
 #include "PaleotrenchSwimSettings.generated.h"
 
-// Imported from Data/SwimTuning.csv by Tools/Editor/prepare_m1.py.
+// Imported from Data/SwimTuning.csv by Tools/Editor/prepare.py.
 USTRUCT(BlueprintType)
 struct PALEOTRENCH_API FPaleotrenchSwimSettings : public FTableRowBase
 {
@@ -33,6 +33,9 @@ struct PALEOTRENCH_API FPaleotrenchSwimSettings : public FTableRowBase
 	bool bInvertLookY = false;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swim")
 	float FinKickInterval = 0.8f;
+	// Speed multiplier while the hands are busy (charging, cranking, swapping tanks).
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Swim")
+	float BusySpeedScale = 0.55f;
 
 	pt::SwimTuning ToCore() const
 	{
@@ -47,6 +50,7 @@ struct PALEOTRENCH_API FPaleotrenchSwimSettings : public FTableRowBase
 			&& FMath::IsFinite(RollRate) && RollRate >= 0 && RollRate <= 180
 			&& FMath::IsFinite(SprintTurnScale) && SprintTurnScale > 0 && SprintTurnScale <= 1
 			&& FMath::IsFinite(FieldOfView) && FieldOfView >= 60 && FieldOfView <= 120
-			&& FMath::IsFinite(FinKickInterval) && FinKickInterval >= 0.1f && FinKickInterval <= 5;
+			&& FMath::IsFinite(FinKickInterval) && FinKickInterval >= 0.1f && FinKickInterval <= 5
+			&& FMath::IsFinite(BusySpeedScale) && BusySpeedScale >= 0.05f && BusySpeedScale <= 1;
 	}
 };

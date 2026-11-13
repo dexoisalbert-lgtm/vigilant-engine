@@ -2,11 +2,12 @@
 
 > Living design document. Originally the approved development plan; updated as decisions change. Current progress is tracked in the README.
 
-**Implementation checkpoint (2026-11-13):** M1 swimming, camera, Enhanced Input,
-underwater greybox tank and CSV import tooling are written. The 25 engine-free
-tests pass. M0's first Unreal compile and M1's on-device acceptance remain
-pending; see [Playtests/M1.md](Playtests/M1.md). The PDF is an earlier plan
-snapshot; this document and the README track current implementation status.
+**Implementation checkpoint (2026-11-13):** M0 and M1 compile on Unreal 5.7 and
+M1 was playtested and tuned. M2 (oxygen, spare tanks, air pockets as
+checkpoints, battery pack, lamp levels, manual charging and hand crank,
+wrist dive computer, mask LEDs, save/load) is implemented with 59 passing
+engine-free tests; see [Playtests/M2.md](Playtests/M2.md). The PDF is an
+earlier plan snapshot; this document and the README track current status.
 
 ## 1. Context
 
