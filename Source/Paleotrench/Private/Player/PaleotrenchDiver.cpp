@@ -50,13 +50,12 @@ namespace
 	// Player model and worn gear (imported from Meshy output; see Tools/Art).
 	// Every path is optional: without the content the diver simply has no body.
 	const TCHAR* const BodyMeshPath = TEXT("/Game/Art/Diver/Player/SK_Diver.SK_Diver");
-	// First-person hands: modelled and rigged in Blender, posed in front of a camera, then baked in camera space
-	// (Tools/Art/hand_pipeline), so they attach to the camera with an identity transform and render with that Blender
-	// camera's field of view (a 50 mm lens on a 36 mm sensor: 39.6 degrees across).
+	// First-person hands: modelled and rigged in Blender and posed in front of a camera at the player's eyes.
+	// The meshes keep their rigs' own space (so animations from those rigs fit); HandPlacement puts them on the
+	// camera where they sat in Blender, and they render with that camera's field of view (a 50 mm lens on a
+	// 36 mm sensor: 39.6 degrees across), so the picture matches the Blender camera view.
 	const TCHAR* const HandLeftPath = TEXT("/Game/Art/Diver/Hands/SK_FPHand_L.SK_FPHand_L");
 	const TCHAR* const HandRightPath = TEXT("/Game/Art/Diver/Hands/SK_FPHand_R.SK_FPHand_R");
-	const TCHAR* const HandLeftName = TEXT("FirstPersonHandL");
-	const TCHAR* const HandRightName = TEXT("FirstPersonHandR");
 	constexpr float HandFieldOfView = 39.6f;
 	constexpr float HandViewScale = 0.5f;  // squashes the hands toward the camera, so they stay out of walls
 	constexpr float HandFillLumens = 3.0f;
@@ -141,21 +140,29 @@ namespace
 		Mesh->LightingChannels.bChannel1 = true;
 	}
 
+	// Each hand on the camera (cm; camera space: +X forward, +Y right, +Z up), as posed in the Blender scene
+	// Hands_live_copy_v2. Regenerate with Tools/Art/hand_placement.py after moving the hands in Blender:
+	// no new bake is needed. A function rather than a table so edits apply under Live Coding.
+	FTransform HandPlacement(bool bLeft)
+	{
+		return bLeft
+			? FTransform(FRotationMatrix::MakeFromXZ(FVector(-0.343014, 0.385334, 0.856656), FVector(0.909561, 0.364029, 0.200453)).ToQuat(),
+				FVector(49.150, -12.120, -4.403), FVector(0.068555))
+			: FTransform(FRotationMatrix::MakeFromXZ(FVector(0.251294, 0.736759, 0.627725), FVector(0.817265, -0.508980, 0.270217)).ToQuat(),
+				FVector(62.455, 15.735, -5.247), FVector(0.069469));
+	}
+
 	// The hands show in first person only. While the wrist computer is up the left hand steps aside (the computer
 	// floats where the hand is); the debug body view hides both.
-	void ApplyHandVisibility(AActor& Owner, bool bBodyView, bool bWristShown)
+	void ApplyHandVisibility(USkeletalMeshComponent* Left, USkeletalMeshComponent* Right, bool bBodyView, bool bWristShown)
 	{
-		TInlineComponentArray<USkeletalMeshComponent*> Components(&Owner);
-		for (USkeletalMeshComponent* Component : Components)
+		if (Left)
 		{
-			if (Component->GetFName() == FName(HandLeftName))
-			{
-				Component->SetVisibility(!bBodyView && !bWristShown);
-			}
-			else if (Component->GetFName() == FName(HandRightName))
-			{
-				Component->SetVisibility(!bBodyView);
-			}
+			Left->SetVisibility(!bBodyView && !bWristShown);
+		}
+		if (Right)
+		{
+			Right->SetVisibility(!bBodyView);
 		}
 	}
 
@@ -272,7 +279,7 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 		WristCase->SetRelativeLocationAndRotation(ComputerLocation, FRotator(0.0, -90.0, 0.0));
 		WristCase->SetRelativeScale3D(FVector(ComputerScale));
 	}
-	// The player's hands. Not header members yet: found by name (promote them at the next full build).
+	// The player's hands.
 	ConstructorHelpers::FObjectFinderOptional<USkeletalMesh> LeftHandMesh(HandLeftPath);
 	ConstructorHelpers::FObjectFinderOptional<USkeletalMesh> RightHandMesh(HandRightPath);
 	if (LeftHandMesh.Succeeded() || RightHandMesh.Succeeded())
@@ -283,10 +290,11 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 		DiveCamera->SetFirstPersonFieldOfView(HandFieldOfView);
 		DiveCamera->SetEnableFirstPersonScale(true);
 		DiveCamera->SetFirstPersonScale(HandViewScale);
-		const auto MakeHand = [this](const TCHAR* Name, USkeletalMesh* HandMesh)
+		const auto MakeHand = [this](const TCHAR* Name, USkeletalMesh* HandMesh, bool bLeft)
 		{
 			USkeletalMeshComponent* Hand = CreateDefaultSubobject<USkeletalMeshComponent>(Name);
 			Hand->SetupAttachment(DiveCamera);
+			Hand->SetRelativeTransform(HandPlacement(bLeft));
 			Hand->SetSkeletalMeshAsset(HandMesh);
 			Hand->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			Hand->SetGenerateOverlapEvents(false);
@@ -299,16 +307,17 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 			Hand->LightingChannels.bChannel0 = false;
 			Hand->LightingChannels.bChannel1 = false;
 			Hand->LightingChannels.bChannel2 = true;
+			return Hand;
 		};
 		if (LeftHandMesh.Succeeded())
 		{
-			MakeHand(HandLeftName, LeftHandMesh.Get());
+			LeftHand = MakeHand(TEXT("FirstPersonHandL"), LeftHandMesh.Get(), true);
 		}
 		if (RightHandMesh.Succeeded())
 		{
-			MakeHand(HandRightName, RightHandMesh.Get());
+			RightHand = MakeHand(TEXT("FirstPersonHandR"), RightHandMesh.Get(), false);
 		}
-		UPointLightComponent* HandFill = CreateDefaultSubobject<UPointLightComponent>(TEXT("HandFill"));
+		HandFill = CreateDefaultSubobject<UPointLightComponent>(TEXT("HandFill"));
 		HandFill->SetupAttachment(DiveCamera);
 		HandFill->SetRelativeLocation(FVector(10.0, 0.0, 25.0));  // camera space: +X forward, +Y right, +Z up
 		HandFill->IntensityUnits = ELightUnits::Lumens;
@@ -761,7 +770,7 @@ void APaleotrenchDiver::ApplyBodyVisibility()
 		Piece->SetOwnerNoSee(bHide);
 	}
 	BodyViewLight->SetVisibility(bBodyView);
-	ApplyHandVisibility(*this, bBodyView, WristBlend > 0.001f);
+	ApplyHandVisibility(LeftHand, RightHand, bBodyView, WristBlend > 0.001f);
 }
 
 void APaleotrenchDiver::SetBodyView(bool bOn, float OrbitYaw)
@@ -822,7 +831,7 @@ void APaleotrenchDiver::UpdateWrist(float Dt)
 	{
 		WristPivot->SetVisibility(bShown, true);
 		WristScreen->SetComponentTickEnabled(bShown);
-		ApplyHandVisibility(*this, bBodyView, bShown);
+		ApplyHandVisibility(LeftHand, RightHand, bBodyView, bShown);
 	}
 	if (!bShown)
 	{

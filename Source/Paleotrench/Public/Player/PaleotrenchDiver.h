@@ -13,6 +13,7 @@ class UInputAction;
 class UInputMappingContext;
 class UPaleotrenchMaskOverlay;
 class UPointLightComponent;
+class USkeletalMeshComponent;
 class USpotLightComponent;
 class UStaticMeshComponent;
 class UWidgetComponent;
@@ -78,6 +79,14 @@ protected:
 	// Fill light for the pt.Body debug view only.
 	UPROPERTY(VisibleAnywhere, Category = "Body")
 	TObjectPtr<UPointLightComponent> BodyViewLight;
+	// The player's own hands in first person (null when the hand meshes are not imported). Placed on
+	// the camera exactly as in the Blender scene they were posed in; see HandPlacement in the .cpp.
+	UPROPERTY(VisibleAnywhere, Category = "Hands")
+	TObjectPtr<USkeletalMeshComponent> LeftHand;
+	UPROPERTY(VisibleAnywhere, Category = "Hands")
+	TObjectPtr<USkeletalMeshComponent> RightHand;
+	UPROPERTY(VisibleAnywhere, Category = "Hands")
+	TObjectPtr<UPointLightComponent> HandFill;
 	UPROPERTY(EditDefaultsOnly, Category = "Tuning")
 	TSoftObjectPtr<UDataTable> SwimSettingsTable;
 

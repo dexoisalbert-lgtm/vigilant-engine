@@ -1,18 +1,19 @@
-# usage: blender -b <Hands.blend> --python hand_pipeline.py -- <out_dir> <Left|Right> <target_tris> <bake_res> <scale>
-# Turns one of the user's rigged first-person hands (high-poly Meshy arm + hand-made armature, posed with object
-# transforms in front of a scene camera) into a game-ready skinned mesh in CAMERA SPACE:
-#   * the world-space look through the scene camera is baked into the mesh and bones,
-#   * everything is re-expressed relative to the camera (x forward, y right as Unreal sees it, z up) and scaled by
-#     <scale> about the camera (the image through the camera does not change; the hand just becomes human size),
-#   * the bones get readable names,
+# usage: blender -b <Hands.blend> --python hand_pipeline.py -- <out_dir> <Left|Right> <target_tris> <bake_res>
+# Turns one of the user's rigged first-person hands (high-poly Meshy arm + hand-made armature, placed with object
+# transforms in front of a scene camera) into a game-ready skinned mesh:
+#   * the mesh is expressed in the ARMATURE's own space and the armature object is reset to identity, so the asset
+#     matches animations exported from the same rig (bone units and orientations are the rig's own),
+#   * the bones get readable names (hand, thumb/index/middle/ring/pinky chains),
 #   * the mesh is decimated and its four maps are re-baked from the high-poly mesh,
-#   * the result is exported as SK_FPHand_<L|R>.fbx (no animation: the user's pose is the reference pose).
-# In Unreal the mesh is then attached to the camera with an identity transform.
-import bpy, bmesh, sys, os, time, math
+#   * the result is exported as SK_FPHand_<L|R>.fbx (no animation: the rig's rest pose is the reference pose),
+#   * where the hand sits in front of the camera is written to FPHand_<L|R>_placement.json; hand_placement.py turns
+#     the two placements into the camera-relative transforms used in Unreal (moving the hands in Blender only needs
+#     that second step, not a new bake).
+import bpy, bmesh, sys, os, time, math, json
 from mathutils import Matrix
 
 a = sys.argv[sys.argv.index("--") + 1:]
-out_dir, side, target, res, scale = a[0], a[1], int(a[2]), int(a[3]), float(a[4])
+out_dir, side, target, res = a[0], a[1], int(a[2]), int(a[3])
 os.makedirs(out_dir, exist_ok=True)
 T0 = time.time()
 def log(*x): print("[hand]", *x, "t=%.0fs" % (time.time() - T0), flush=True)
@@ -31,22 +32,24 @@ for finger, bones in CHAINS[side].items():
 sc = bpy.context.scene
 arm_n, mesh_n = PAIRS[side]
 cam = sc.camera
-Tm = Matrix.Diagonal((scale, scale, scale, 1.0)) @ Matrix(((0, 0, -1, 0), (-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 0, 1))) @ cam.matrix_world.inverted()
+cam_matrix = cam.matrix_world.copy()
+cam_lens, cam_sensor = cam.data.lens, cam.data.sensor_width   # read before the camera is deleted below
 for o in list(sc.objects):
     if o.name not in (arm_n, mesh_n): bpy.data.objects.remove(o, do_unlink=True)
 bpy.ops.outliner.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 arm = bpy.data.objects[arm_n]; hi = bpy.data.objects[mesh_n]
 log("start", side, "verts", len(hi.data.vertices), "tris", sum(len(p.vertices) - 2 for p in hi.data.polygons))
 
-# 1. bake the world placement + camera-space transform into mesh and bones
+# 1. express the mesh in the armature's own space and reset the armature object (its placement is kept in the json)
 def sel(objs):
     bpy.ops.object.select_all(action='DESELECT')
     for o in objs: o.select_set(True)
     bpy.context.view_layer.objects.active = objs[0]
+arm_matrix = arm.matrix_world.copy()
 sel([hi]); bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
-hi.matrix_world = Tm @ hi.matrix_world
-arm.matrix_world = Tm @ arm.matrix_world
-sel([arm, hi]); bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+hi.matrix_world = arm_matrix.inverted() @ hi.matrix_world
+arm.matrix_world = Matrix.Identity(4)
+sel([hi]); bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 hi.parent = arm; hi.matrix_parent_inverse = Matrix.Identity(4)
 for m in hi.modifiers:
     if m.type == 'ARMATURE': m.object = arm
@@ -58,10 +61,17 @@ missing = [b.name for b in arm.data.bones if b.name not in hi.vertex_groups]
 log("bones", [b.name for b in arm.data.bones], "bones without weights:", missing)
 pts = [hi.matrix_world @ v.co for v in hi.data.vertices]
 lo_b = [min(p[i] for p in pts) for i in range(3)]; hi_b = [max(p[i] for p in pts) for i in range(3)]
-log("camera-space bbox (m, export axes x fwd, y = -right, z up):", [round(x, 3) for x in lo_b], [round(x, 3) for x in hi_b])
+log("armature-space bbox:", [round(x, 3) for x in lo_b], [round(x, 3) for x in hi_b])
 root = arm.data.bones["hand" + sfx]
 tips = [b for b in arm.data.bones if not b.children]
-log("hand length (root head -> farthest tip) m:", round(max((arm.matrix_world @ t.tail_local - arm.matrix_world @ root.head_local).length for t in tips), 3))
+hand_len = max((t.tail_local - root.head_local).length for t in tips)
+hand_len_world = max((arm_matrix @ t.tail_local - arm_matrix @ root.head_local).length for t in tips)
+log("hand length: armature units", round(hand_len, 3), "| in the scene (m)", round(hand_len_world, 3))
+with open(os.path.join(out_dir, "FPHand_%s_placement.json" % side[0]), "w") as f:
+    json.dump({"side": side, "scene_file": bpy.data.filepath, "armature_matrix": [list(r) for r in arm_matrix],
+               "camera_matrix": [list(r) for r in cam_matrix], "camera_lens_mm": cam_lens,
+               "camera_sensor_mm": cam_sensor, "hand_length_armature": hand_len,
+               "hand_length_scene_m": hand_len_world}, f, indent=1)
 
 # 2. low-poly copy: strip UVs, collapse-decimate, smart UV
 hi.name = "FPHand%s_high" % sfx
@@ -70,7 +80,7 @@ sc.collection.objects.link(lo)
 while lo.data.uv_layers: lo.data.uv_layers.remove(lo.data.uv_layers[0])
 lo.data.materials.clear()
 bm = bmesh.new(); bm.from_mesh(lo.data)
-bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=hand_len * 5e-6)
 bm.to_mesh(lo.data); bm.free()
 sel([lo])
 cur = len(lo.data.polygons)
@@ -95,10 +105,10 @@ except Exception as e: log("pack skipped", e)
 bpy.ops.object.mode_set(mode='OBJECT')
 log("low", len(lo.data.polygons), "tris")
 
-# 3. bake the four maps from the high-poly mesh (hand-scale distances: metres)
+# 3. bake the four maps from the high-poly mesh (distances relative to the hand: armature units)
 sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'; sc.cycles.samples = 1
 b = sc.render.bake
-b.use_selected_to_active = True; b.cage_extrusion = 0.002; b.max_ray_distance = 0.006
+b.use_selected_to_active = True; b.cage_extrusion = hand_len * 0.0105; b.max_ray_distance = hand_len * 0.0316
 b.margin = 16; b.margin_type = 'EXTEND'
 name = "FPHand_" + side[0]
 hmat = hi.data.materials[0]; hnt = hmat.node_tree

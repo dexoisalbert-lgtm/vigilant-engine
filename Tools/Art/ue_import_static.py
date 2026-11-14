@@ -1,7 +1,10 @@
 import os, unreal
-# Folder written by decimate_static.py (one sub-folder per piece); override with GEAR_DECIMATED.
+# Folder written by decimate_static.py or weapon_pipeline.py (one sub-folder per piece); override with
+# GEAR_DECIMATED. GEAR_ROOT picks the content folder (weapons go to /Game/Art/Weapons). Every piece uses the
+# shared master material in /Game/Art/Diver/Gear.
 SRC = os.environ.get("GEAR_DECIMATED", os.path.join(os.path.expanduser("~"), "Downloads", "GearForPlayer", "Decimated"))
-ROOT = "/Game/Art/Diver/Gear"
+ROOT = os.environ.get("GEAR_ROOT", "/Game/Art/Diver/Gear")
+MASTER_ROOT = "/Game/Art/Diver/Gear"
 at = unreal.AssetToolsHelpers.get_asset_tools()
 eal = unreal.EditorAssetLibrary
 mel = unreal.MaterialEditingLibrary
@@ -29,7 +32,7 @@ def tex_setup(path, kind):
     return t
 
 pieces = ONLY if "ONLY" in globals() else sorted(d for d in os.listdir(SRC) if os.path.isfile(os.path.join(SRC, d, "SM_%s.fbx" % d)))
-master_path = ROOT + "/M_GearMaster"
+master_path = MASTER_ROOT + "/M_GearMaster"
 master = None
 for name in pieces:
     folder = os.path.join(SRC, name); dest = "%s/%s" % (ROOT, name)
@@ -41,7 +44,7 @@ for name in pieces:
         if eal.does_asset_exist(master_path):
             master = unreal.load_asset(master_path)
         else:
-            master = at.create_asset("M_GearMaster", ROOT, unreal.Material, unreal.MaterialFactoryNew())
+            master = at.create_asset("M_GearMaster", MASTER_ROOT, unreal.Material, unreal.MaterialFactoryNew())
             spec = [("BaseColor", "BC", unreal.MaterialSamplerType.SAMPLERTYPE_COLOR, unreal.MaterialProperty.MP_BASE_COLOR, -400),
                     ("Metallic", "M", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE, unreal.MaterialProperty.MP_METALLIC, -150),
                     ("Roughness", "R", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE, unreal.MaterialProperty.MP_ROUGHNESS, 100),
