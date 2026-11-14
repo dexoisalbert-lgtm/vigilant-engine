@@ -9,6 +9,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -45,6 +46,49 @@ namespace
 	constexpr float NoticeSeconds = 3.0f;
 	constexpr float GlanceSeconds = 1.6f;
 	constexpr float BurstStrobeHz = 12.0f;
+
+		// Player model and worn gear (imported from Meshy output; see Tools/Art).
+	// Every path is optional: without the content the diver simply has no body.
+	const TCHAR* const BodyMeshPath = TEXT("/Game/Art/Diver/Player/SK_Diver.SK_Diver");
+	const TCHAR* const ComputerMeshPath = TEXT("/Game/Art/Diver/Gear/DiveComputer/SM_DiveComputer.SM_DiveComputer");
+	// Where the eyes sit in the body mesh (cm; +Y is the face, +Z is up).
+	const FVector BodyEyeInMesh(0.0, 14.0, 157.0);
+	constexpr double BodyEaseRate = 4.0;
+	constexpr double BodyViewDistance = 300.0;
+
+	// First-person wrist: the dive computer model (12 x 6.2 x 8 cm, scaled 1.1)
+	// with its screen plane just behind the widget. The model's front (+Y)
+	// faces the wrist's +X, so it is yawed -90.
+	constexpr double ComputerScale = 1.1;
+	const FVector ComputerLocation(-3.12, 0.0, 1.13);
+	constexpr float ComputerWidgetScale = 0.01483f;  // 512 px -> 7.6 cm, fitted to the screen glass
+	constexpr double ComputerWidgetLift = 0.9;       // cm up, so the widget centres on the glass
+
+	struct FWornGearSpec
+	{
+		const TCHAR* Name;
+		const TCHAR* MeshPath;
+		const TCHAR* Bone;
+		FVector Location;  // relative to the bone, cm
+		FRotator Rotation;
+		FVector Scale;
+		bool bCastShadow;  // the head lamp and mask sit in the lamp's beam
+	};
+	// Placed on the body in the editor (reference pose), then baked to bone-relative numbers.
+	const FWornGearSpec WornGearSpecs[] = {
+		{TEXT("WornMask"), TEXT("/Game/Art/Diver/Gear/DiveMask/SM_DiveMask.SM_DiveMask"), TEXT("Head"),
+			FVector(0.146, -4.568, 4.999), FRotator(-3.423, -4.981, -101.967), FVector(1.0, 0.8, 1.0), false},
+		{TEXT("WornHeadlamp"), TEXT("/Game/Art/Diver/Gear/Headlamp/SM_Headlamp.SM_Headlamp"), TEXT("Head"),
+			FVector(-0.974, -17.245, 4.755), FRotator(77.56, -79.249, -163.909), FVector(0.6), false},
+		{TEXT("WornAirTank"), TEXT("/Game/Art/Diver/Gear/AirTank/SM_AirTank.SM_AirTank"), TEXT("Spine01"),
+			FVector(-1.36, 14.852, -21.802), FRotator(2.052, -179.209, 95.855), FVector(1.0), true},
+		{TEXT("WornBatteryPack"), TEXT("/Game/Art/Diver/Gear/BatteryPack/SM_BatteryPack.SM_BatteryPack"), TEXT("Spine01"),
+			FVector(-5.737, 0.659, 18.154), FRotator(2.052, -179.209, 95.855), FVector(1.0), true},
+		{TEXT("WornDiveComputer"), TEXT("/Game/Art/Diver/Gear/DiveComputer/SM_DiveComputer.SM_DiveComputer"), TEXT("LeftForeArm"),
+			FVector(-0.899, -17.884, -3.288), FRotator(-7.658, 95.181, 76.874), FVector(1.1), true},
+		{TEXT("WornKnife"), TEXT("/Game/Art/Diver/Gear/DiveKnife/SM_DiveKnife.SM_DiveKnife"), TEXT("LeftLeg"),
+			FVector(8.548, -18.315, 0.459), FRotator(-86.195, 178.164, 98.108), FVector(1.0), true},
+	};
 
 	const FLinearColor DiverGreen(0.25f, 1.0f, 0.45f);
 	const FLinearColor DiverCyan(0.15f, 0.8f, 1.0f);
@@ -103,7 +147,20 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 	// A spherical capsule gives the greybox diver the same clearance at every
 	// viewing angle, avoiding rotation tunnelling when rolling near a wall.
 	GetCapsuleComponent()->InitCapsuleSize(34.0f, 34.0f);
-	GetMesh()->SetHiddenInGame(true);
+	// The body: the camera sits inside its head, so the player never sees it
+	// (owner no-see), but it still casts shadows. The capsule is the collision.
+	{
+		USkeletalMeshComponent* Body = GetMesh();
+		ConstructorHelpers::FObjectFinderOptional<USkeletalMesh> BodyAsset(BodyMeshPath);
+		if (BodyAsset.Succeeded())
+		{
+			Body->SetSkeletalMeshAsset(BodyAsset.Get());
+		}
+		Body->SetOwnerNoSee(true);
+		Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Body->SetGenerateOverlapEvents(false);
+		Body->SetCanEverAffectNavigation(false);
+	}
 	DiveCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("DiveCamera"));
 	DiveCamera->SetupAttachment(GetCapsuleComponent());
 	DiveCamera->bUsePawnControlRotation = false;
@@ -126,6 +183,38 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 
 	Gear = CreateDefaultSubobject<UPaleotrenchDiveGear>(TEXT("DiveGear"));
 
+	// Worn gear rides on the body's bones.
+	for (const FWornGearSpec& Spec : WornGearSpecs)
+	{
+		UStaticMeshComponent* Piece = CreateDefaultSubobject<UStaticMeshComponent>(Spec.Name);
+		Piece->SetupAttachment(GetMesh(), Spec.Bone);
+		Piece->SetMobility(EComponentMobility::Movable);
+		Piece->SetRelativeLocationAndRotation(Spec.Location, Spec.Rotation);
+		Piece->SetRelativeScale3D(Spec.Scale);
+		ConstructorHelpers::FObjectFinderOptional<UStaticMesh> PieceMesh(Spec.MeshPath);
+		if (PieceMesh.Succeeded())
+		{
+			Piece->SetStaticMesh(PieceMesh.Get());
+		}
+		Piece->SetOwnerNoSee(true);
+		Piece->SetCastShadow(Spec.bCastShadow);
+		Piece->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Piece->SetGenerateOverlapEvents(false);
+		Piece->SetCanEverAffectNavigation(false);
+		WornGear.Add(Piece);
+	}
+	// Debug fill light for pt.Body (the camera is far from the head lamp then).
+	BodyViewLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("BodyViewLight"));
+	BodyViewLight->SetupAttachment(DiveCamera);
+	// Held back behind the camera so the nearest part of the body is never much closer than the rest.
+	BodyViewLight->SetRelativeLocation(FVector(-250.0, 0.0, 0.0));
+	BodyViewLight->SetMobility(EComponentMobility::Movable);
+	BodyViewLight->IntensityUnits = ELightUnits::Lumens;
+	BodyViewLight->SetIntensity(2400.0f);
+	BodyViewLight->SetAttenuationRadius(1200.0f);
+	BodyViewLight->SetCastShadows(false);
+	BodyViewLight->SetVisibility(false);
+
 	// Greybox forearm with a dive computer strapped to it.
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
@@ -141,13 +230,23 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 	Forearm->SetRelativeLocation(FVector(-5.5, 5.0, -1.0));
 	Forearm->SetRelativeRotation(FRotator(0.0, 0.0, 90.0));
 	Forearm->SetRelativeScale3D(FVector(0.07, 0.07, 0.28));
+	// The real dive computer replaces the greybox case when the model is imported.
+	ConstructorHelpers::FObjectFinderOptional<UStaticMesh> ComputerMesh(ComputerMeshPath);
+	bRealWristComputer = ComputerMesh.Succeeded();
+	if (bRealWristComputer)
+	{
+		WristCase->SetStaticMesh(ComputerMesh.Get());
+		WristCase->SetRelativeLocationAndRotation(ComputerLocation, FRotator(0.0, -90.0, 0.0));
+		WristCase->SetRelativeScale3D(FVector(ComputerScale));
+	}
 	WristScreen = CreateDefaultSubobject<UWidgetComponent>(TEXT("WristScreen"));
 	WristScreen->SetupAttachment(WristPivot);
-	WristScreen->SetRelativeLocation(FVector(0.05, 0.0, 0.0));
+	WristScreen->SetRelativeLocation(FVector(0.05, 0.0, bRealWristComputer ? ComputerWidgetLift : 0.0));
 	WristScreen->SetWidgetSpace(EWidgetSpace::World);
 	WristScreen->SetWidgetClass(UPaleotrenchWristDisplay::StaticClass());
 	WristScreen->SetDrawSize(FVector2D(UPaleotrenchWristDisplay::PixelWidth, UPaleotrenchWristDisplay::PixelHeight));
-	WristScreen->SetRelativeScale3D(FVector(0.0156));  // 512 px wide -> 8 cm
+	// 512 px wide -> 8 cm on the greybox case, or fitted to the model's glass.
+	WristScreen->SetRelativeScale3D(FVector(bRealWristComputer ? ComputerWidgetScale : 0.0156f));
 	WristScreen->SetBlendMode(EWidgetBlendMode::Opaque);
 	WristScreen->SetTwoSided(true);
 	WristScreen->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -208,7 +307,12 @@ void APaleotrenchDiver::BeginPlay()
 		SurfaceZ = It->GetSurfaceWorldZ();
 		break;
 	}
-	TintBasicShape(WristCase, FLinearColor(0.02f, 0.022f, 0.026f));
+	if (!bRealWristComputer)
+	{
+		TintBasicShape(WristCase, FLinearColor(0.02f, 0.022f, 0.026f));
+	}
+	BodyOrientation = ViewOrientation;
+	ApplyBodyVisibility();
 	TintBasicShape(Forearm, FLinearColor(0.010f, 0.011f, 0.013f));
 
 	UE_LOG(LogPaleotrench, Display, TEXT("M2 diver ready: cruise %.0f cm/s, sprint %.0f cm/s, tuning %s"),
@@ -444,6 +548,7 @@ void APaleotrenchDiver::Tick(float DeltaSeconds)
 	auto* Movement = CastChecked<UPaleotrenchSwimMovement>(GetCharacterMovement());
 	Movement->SetSpeedScale(Gear->GetSwimScale() * (Gear->IsBusy() ? Settings.BusySpeedScale : 1.0f));
 	UpdateCameraFeel(Dt, bSprinting);
+	UpdateBody(Dt);
 	if (!Gear->IsBlackedOut())
 	{
 		AddMovementInput(ViewOrientation.GetForwardVector(), MoveInput.X);
@@ -513,18 +618,31 @@ void APaleotrenchDiver::UpdateCameraFeel(float Dt, bool bSprinting)
 		* (FMath::Clamp(ViewRoll / LeanAngle, -1.0, 1.0) * LeanPeekDistance);
 	const FVector Pivot = GetActorLocation() + GetActorQuat().RotateVector(CameraBaseLocation);
 	FVector Desired = Pivot + PeekOffset + CameraOrientation.RotateVector(ViewOffset);
+	FVector SweepFrom = Pivot;
+	FVector BodyFocus = FVector::ZeroVector;
+	if (bBodyView)
+	{
+		// Debug view (pt.Body): orbit the swimming body, which trails behind the head.
+		BodyFocus = Pivot - FRotator(ViewPitch, ViewYaw, 0.0).Vector() * 70.0;
+		SweepFrom = BodyFocus;
+		Desired = BodyFocus - FRotator(0.0, ViewYaw + BodyOrbitYaw, 0.0).Vector() * BodyViewDistance + FVector(0.0, 0.0, 40.0);
+	}
 	// Never push the camera into a wall: sweep a small sphere from the head pivot.
 	if (const UWorld* World = GetWorld())
 	{
 		FHitResult Hit;
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(DiverPeek), false, this);
-		if (World->SweepSingleByChannel(Hit, Pivot, Desired, FQuat::Identity, ECC_Camera,
+		if (World->SweepSingleByChannel(Hit, SweepFrom, Desired, FQuat::Identity, ECC_Camera,
 			FCollisionShape::MakeSphere(10.0f), Params))
 		{
 			Desired = Hit.Location;
 		}
 	}
 	DiveCamera->SetWorldLocation(Desired);
+	if (bBodyView)
+	{
+		DiveCamera->SetWorldRotation(FRotationMatrix::MakeFromX(BodyFocus - Desired).ToQuat());
+	}
 
 	// Flashlight: trails the view when turning (~0.2 s) but never more than 15°.
 	LampOrientation = FQuat::Slerp(LampOrientation, Shown, Ease(9.0)).GetNormalized();
@@ -535,6 +653,38 @@ void APaleotrenchDiver::UpdateCameraFeel(float Dt, bool bSprinting)
 		LampOrientation = FQuat::Slerp(Shown, LampOrientation, MaxLampLag / LampLag).GetNormalized();
 	}
 	Headlamp->SetWorldRotation(LampOrientation);
+}
+
+void APaleotrenchDiver::UpdateBody(float Dt)
+{
+	// The body swims along the view's heading and pitch (not its lean), turning
+	// a little slower than the head. The standing mesh is turned to face +X and
+	// then pitched face-down, so its head leads and its eyes sit at the camera.
+	const FQuat Heading = FRotator(ViewPitch, ViewYaw, 0.0).Quaternion();
+	BodyOrientation = FQuat::Slerp(BodyOrientation, Heading, 1.0 - FMath::Exp(-BodyEaseRate * Dt)).GetNormalized();
+	const FQuat SwimPose = FRotator(-90.0, 0.0, 0.0).Quaternion() * FRotator(0.0, -90.0, 0.0).Quaternion();
+	const FQuat MeshRotation = BodyOrientation * SwimPose;
+	const FVector Pivot = GetActorLocation() + GetActorQuat().RotateVector(CameraBaseLocation);
+	GetMesh()->SetWorldLocationAndRotation(Pivot - MeshRotation.RotateVector(BodyEyeInMesh), MeshRotation);
+}
+
+void APaleotrenchDiver::ApplyBodyVisibility()
+{
+	// The player's own camera is inside the head, so only the debug view shows the body.
+	const bool bHide = !bBodyView;
+	GetMesh()->SetOwnerNoSee(bHide);
+	for (UStaticMeshComponent* Piece : WornGear)
+	{
+		Piece->SetOwnerNoSee(bHide);
+	}
+	BodyViewLight->SetVisibility(bBodyView);
+}
+
+void APaleotrenchDiver::SetBodyView(bool bOn, float OrbitYaw)
+{
+	bBodyView = bOn;
+	BodyOrbitYaw = OrbitYaw;
+	ApplyBodyVisibility();
 }
 
 void APaleotrenchDiver::UpdateLamp(float Dt)
@@ -787,7 +937,7 @@ void APaleotrenchDiver::RespawnAt(const FVector& Location, float Yaw)
 	ViewYaw = Yaw;
 	ViewPitch = ViewRoll = LeanVelocity = 0.0;
 	ViewOrientation = FRotator(ViewPitch, ViewYaw, ViewRoll).Quaternion();
-	CameraOrientation = LampOrientation = ViewOrientation;
+	CameraOrientation = LampOrientation = BodyOrientation = ViewOrientation;
 	DiveCamera->SetWorldRotation(CameraOrientation);
 	Headlamp->SetWorldRotation(LampOrientation);
 	StrokeAmount = StrafeBank = 0.0;

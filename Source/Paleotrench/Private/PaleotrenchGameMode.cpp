@@ -345,6 +345,31 @@ namespace
 			}
 		}));
 
+	FAutoConsoleCommandWithWorldAndArgs GPaleotrenchBody(TEXT("pt.Body"),
+		TEXT("Debug: see the diver's body and gear from outside. pt.Body toggles; pt.Body 180 sets the angle around "
+			"the diver (0 behind, 90 right side, 180 in front); pt.Body off returns to the first-person view."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			const APaleotrenchGameMode* Mode = ConsoleGameMode(World);
+			APaleotrenchDiver* Current = Mode ? Mode->GetDiver() : nullptr;
+			if (!Current)
+			{
+				return;
+			}
+			if (Args.Num() > 0 && Args[0].Equals(TEXT("off"), ESearchCase::IgnoreCase))
+			{
+				Current->SetBodyView(false, 0.0f);
+			}
+			else if (Args.Num() > 0)
+			{
+				Current->SetBodyView(true, FCString::Atof(*Args[0]));
+			}
+			else
+			{
+				Current->SetBodyView(!Current->IsBodyView(), 0.0f);
+			}
+		}));
+
 	FAutoConsoleCommandWithWorldAndArgs GPaleotrenchSpares(TEXT("pt.Spares"),
 		TEXT("Playtest: set the number of spare tanks, e.g. pt.Spares 2"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)

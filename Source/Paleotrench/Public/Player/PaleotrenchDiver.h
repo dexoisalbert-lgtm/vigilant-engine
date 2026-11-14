@@ -42,6 +42,10 @@ public:
 	bool CollectSpareTank();
 	// Console pt.Wrist: same as tapping the wrist key.
 	void ToggleWrist() { bWristUp = !bWristUp; }
+	// Console pt.Body: debug view from outside, to see the body and its gear.
+	// OrbitYaw 0 is behind the diver, 180 in front, 90 the diver's right side.
+	void SetBodyView(bool bOn, float OrbitYaw);
+	bool IsBodyView() const { return bBodyView; }
 
 	// M4 connects this to the typed Sound stimulus system. No AI/audio yet.
 	UPROPERTY(BlueprintAssignable, Category = "Diving")
@@ -67,6 +71,13 @@ protected:
 	TObjectPtr<UWidgetComponent> WristScreen;
 	UPROPERTY(VisibleAnywhere, Category = "Wrist")
 	TObjectPtr<UPointLightComponent> WristGlow;
+	// Worn gear on the body mesh (mask, head lamp, tank, battery pack, dive
+	// computer, knife). Hidden from the player's own camera; they cast shadows.
+	UPROPERTY(VisibleAnywhere, Category = "Body")
+	TArray<TObjectPtr<UStaticMeshComponent>> WornGear;
+	// Fill light for the pt.Body debug view only.
+	UPROPERTY(VisibleAnywhere, Category = "Body")
+	TObjectPtr<UPointLightComponent> BodyViewLight;
 	UPROPERTY(EditDefaultsOnly, Category = "Tuning")
 	TSoftObjectPtr<UDataTable> SwimSettingsTable;
 
@@ -102,6 +113,8 @@ private:
 	void UpdateCameraFeel(float Dt, bool bSprinting);
 	void UpdateLamp(float Dt);
 	void UpdateWrist(float Dt);
+	void UpdateBody(float Dt);
+	void ApplyBodyVisibility();
 	void UpdateDistress(float Dt);
 	void UpdateMaskLeds();
 	void HandleGearEvents(const FPaleotrenchGearEvents& Events);
@@ -162,6 +175,11 @@ private:
 	FQuat CameraOrientation = FQuat::Identity;
 	FQuat LampOrientation = FQuat::Identity;
 	FVector CameraBaseLocation = FVector::ZeroVector;
+	// The body swims along the heading and pitch of the view, easing slowly.
+	FQuat BodyOrientation = FQuat::Identity;
+	bool bBodyView = false;
+	float BodyOrbitYaw = 0.0f;
+	bool bRealWristComputer = false;
 	double BreathPhase = 0.0;
 	double StrokePhase = 0.0;
 	double StrokeAmount = 0.0;

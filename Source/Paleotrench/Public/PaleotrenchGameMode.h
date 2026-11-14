@@ -16,7 +16,7 @@ namespace pt
 // C++ diver and runs the dive session: continuing a save, checkpoint
 // autosaves at air pockets, blackout and respawn, and collected pickups.
 // Playtest console commands: pt.Save, pt.Load, pt.NewGame, pt.Oxygen,
-// pt.Pack, pt.Lamp, pt.Spares, pt.Wrist.
+// pt.Pack, pt.Lamp, pt.Spares, pt.Wrist, pt.Body.
 UCLASS()
 class PALEOTRENCH_API APaleotrenchGameMode : public AGameModeBase
 {

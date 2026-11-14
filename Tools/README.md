@@ -10,6 +10,9 @@
 | `RunCoreTests.bat` | Builds and runs the engine-free core tests with the Visual Studio compiler (no CMake, no Unreal). | Before every code delivery. |
 | `run_core_tests.sh` | The same tests through CMake, for machines that have it. | Optional. |
 | `CoreTests/` | The tests themselves. | — |
+| `Art/decimate_static.py`, `Art/decimate_skinned.py` | Blender (run headless with `-b --python`): turn multi-million-triangle Meshy exports into game-ready meshes by decimating and re-baking all four maps. Arguments are in each file's header. | Whenever new Meshy gear or characters arrive. |
+| `Art/compare_render.py` | Renders the original beside the reduced mesh, to check nothing was lost. | After a decimation. |
+| `Art/ue_import_static.py` | Imports the reduced pieces into `/Game/Art/Diver/Gear` with a shared master material (run with `ue_live.py file`). | After a decimation. |
 
 The preparation log is `Saved/Logs/Prepare.txt`; `CollectLogs.bat` includes it.
 The success marker (`Saved/Prepared.txt`) is written only after the tables,
