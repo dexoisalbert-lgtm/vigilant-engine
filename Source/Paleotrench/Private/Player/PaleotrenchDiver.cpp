@@ -1,5 +1,6 @@
 #include "Player/PaleotrenchDiver.h"
 
+#include "Animation/AnimSequence.h"
 #include "Blueprint/UserWidget.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -47,9 +48,15 @@ namespace
 	constexpr float GlanceSeconds = 1.6f;
 	constexpr float BurstStrobeHz = 12.0f;
 
-		// Player model and worn gear (imported from Meshy output; see Tools/Art).
+	// Player model and worn gear (imported from Meshy output; see Tools/Art).
 	// Every path is optional: without the content the diver simply has no body.
 	const TCHAR* const BodyMeshPath = TEXT("/Game/Art/Diver/Player/SK_Diver.SK_Diver");
+	// First-person arm: the left arm cut from the body mesh (same skeleton, finger bones) held in a one-frame pose.
+	const TCHAR* const ArmMeshPath = TEXT("/Game/Art/Diver/Player/SK_Diver_FPArm.SK_Diver_FPArm");
+	const TCHAR* const ArmPosePath = TEXT("/Game/Art/Diver/Player/A_Diver_FP_LeftArm.A_Diver_FP_LeftArm");
+	const TCHAR* const ArmComponentName = TEXT("FirstPersonArm");
+	const TCHAR* const ComputerBone = TEXT("LeftForeArm");
+	constexpr float ArmFillLumens = 1.6f;
 	const TCHAR* const ComputerMeshPath = TEXT("/Game/Art/Diver/Gear/DiveComputer/SM_DiveComputer.SM_DiveComputer");
 	// Where the eyes sit in the body mesh (cm; +Y is the face, +Z is up).
 	const FVector BodyEyeInMesh(0.0, 14.0, 157.0);
@@ -75,20 +82,25 @@ namespace
 		bool bCastShadow;  // the head lamp and mask sit in the lamp's beam
 	};
 	// Placed on the body in the editor (reference pose), then baked to bone-relative numbers.
-	const FWornGearSpec WornGearSpecs[] = {
-		{TEXT("WornMask"), TEXT("/Game/Art/Diver/Gear/DiveMask/SM_DiveMask.SM_DiveMask"), TEXT("Head"),
-			FVector(0.146, -4.568, 4.999), FRotator(-3.423, -4.981, -101.967), FVector(1.0, 0.8, 1.0), false},
-		{TEXT("WornHeadlamp"), TEXT("/Game/Art/Diver/Gear/Headlamp/SM_Headlamp.SM_Headlamp"), TEXT("Head"),
-			FVector(-0.974, -17.245, 4.755), FRotator(77.56, -79.249, -163.909), FVector(0.6), false},
-		{TEXT("WornAirTank"), TEXT("/Game/Art/Diver/Gear/AirTank/SM_AirTank.SM_AirTank"), TEXT("Spine01"),
-			FVector(-1.36, 14.852, -21.802), FRotator(2.052, -179.209, 95.855), FVector(1.0), true},
-		{TEXT("WornBatteryPack"), TEXT("/Game/Art/Diver/Gear/BatteryPack/SM_BatteryPack.SM_BatteryPack"), TEXT("Spine01"),
-			FVector(-5.737, 0.659, 18.154), FRotator(2.052, -179.209, 95.855), FVector(1.0), true},
-		{TEXT("WornDiveComputer"), TEXT("/Game/Art/Diver/Gear/DiveComputer/SM_DiveComputer.SM_DiveComputer"), TEXT("LeftForeArm"),
-			FVector(-0.899, -17.884, -3.288), FRotator(-7.658, 95.181, 76.874), FVector(1.1), true},
-		{TEXT("WornKnife"), TEXT("/Game/Art/Diver/Gear/DiveKnife/SM_DiveKnife.SM_DiveKnife"), TEXT("LeftLeg"),
-			FVector(8.548, -18.315, 0.459), FRotator(-86.195, 178.164, 98.108), FVector(1.0), true},
-	};
+	// A function rather than a static table, so edits to the numbers also apply under Live Coding.
+	TArray<FWornGearSpec> MakeWornGearSpecs()
+	{
+		return TArray<FWornGearSpec>({
+			{TEXT("WornMask"), TEXT("/Game/Art/Diver/Gear/DiveMask/SM_DiveMask.SM_DiveMask"), TEXT("Head"),
+				FVector(0.146, -4.568, 4.999), FRotator(-3.423, -4.981, -101.967), FVector(1.0, 0.8, 1.0), false},
+			{TEXT("WornHeadlamp"), TEXT("/Game/Art/Diver/Gear/Headlamp/SM_Headlamp.SM_Headlamp"), TEXT("Head"),
+				FVector(-0.974, -17.245, 4.755), FRotator(77.56, -79.249, -163.909), FVector(0.6), false},
+			{TEXT("WornAirTank"), TEXT("/Game/Art/Diver/Gear/AirTank/SM_AirTank.SM_AirTank"), TEXT("Spine01"),
+				FVector(-1.36, 14.852, -21.802), FRotator(2.052, -179.209, 95.855), FVector(1.0), true},
+			{TEXT("WornBatteryPack"), TEXT("/Game/Art/Diver/Gear/BatteryPack/SM_BatteryPack.SM_BatteryPack"), TEXT("Spine01"),
+				FVector(-5.737, 0.659, 18.154), FRotator(2.052, -179.209, 95.855), FVector(1.0), true},
+			// Worn so its text reads toward the hand with the top toward the little finger (also the first-person arm's mount).
+			{TEXT("WornDiveComputer"), TEXT("/Game/Art/Diver/Gear/DiveComputer/SM_DiveComputer.SM_DiveComputer"), TEXT("LeftForeArm"),
+				FVector(-0.899, -17.884, -3.288), FRotator(7.658, -84.819, 103.126), FVector(1.1), true},
+			{TEXT("WornKnife"), TEXT("/Game/Art/Diver/Gear/DiveKnife/SM_DiveKnife.SM_DiveKnife"), TEXT("LeftLeg"),
+				FVector(8.548, -18.315, 0.459), FRotator(-86.195, 178.164, 98.108), FVector(1.0), true},
+		});
+	}
 
 	const FLinearColor DiverGreen(0.25f, 1.0f, 0.45f);
 	const FLinearColor DiverCyan(0.15f, 0.8f, 1.0f);
@@ -124,6 +136,32 @@ namespace
 		// arm out to white at this range; the screen's own glow lights it.
 		Mesh->LightingChannels.bChannel0 = false;
 		Mesh->LightingChannels.bChannel1 = true;
+	}
+
+	// Puts the first-person arm where the dive computer on it coincides with the wrist case. The computer is
+	// mounted on the forearm bone exactly as on the body (WornDiveComputer), so the arm follows from the case.
+	void AlignFirstPersonArm(USkeletalMeshComponent& Arm, const UStaticMeshComponent& Case)
+	{
+		const TArray<FWornGearSpec> Specs = MakeWornGearSpecs();
+		const FWornGearSpec* Spec = nullptr;
+		for (const FWornGearSpec& Candidate : Specs)
+		{
+			if (FCString::Strcmp(Candidate.Name, TEXT("WornDiveComputer")) == 0)
+			{
+				Spec = &Candidate;
+			}
+		}
+		if (!Spec)
+		{
+			return;
+		}
+		// The pose is a single frame: evaluate it now so the bone transforms are valid.
+		Arm.TickAnimation(0.0f, false);
+		Arm.RefreshBoneTransforms();
+		const FTransform BoneInComponent = Arm.GetSocketTransform(ComputerBone, RTS_Component);
+		const FTransform ComputerOnBone(Spec->Rotation, Spec->Location, Spec->Scale);
+		const FTransform ComputerInComponent = ComputerOnBone * BoneInComponent;
+		Arm.SetRelativeTransform(ComputerInComponent.Inverse() * Case.GetRelativeTransform());
 	}
 
 	void TintBasicShape(UStaticMeshComponent* Mesh, const FLinearColor& Color)
@@ -184,7 +222,7 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 	Gear = CreateDefaultSubobject<UPaleotrenchDiveGear>(TEXT("DiveGear"));
 
 	// Worn gear rides on the body's bones.
-	for (const FWornGearSpec& Spec : WornGearSpecs)
+	for (const FWornGearSpec& Spec : MakeWornGearSpecs())
 	{
 		UStaticMeshComponent* Piece = CreateDefaultSubobject<UStaticMeshComponent>(Spec.Name);
 		Piece->SetupAttachment(GetMesh(), Spec.Bone);
@@ -238,6 +276,48 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 		WristCase->SetStaticMesh(ComputerMesh.Get());
 		WristCase->SetRelativeLocationAndRotation(ComputerLocation, FRotator(0.0, -90.0, 0.0));
 		WristCase->SetRelativeScale3D(FVector(ComputerScale));
+	}
+	// The diver's own left arm replaces the greybox forearm when it is imported. It is placed in BeginPlay so the
+	// dive computer sits on it exactly as on the body (see AlignFirstPersonArm); the pose is a single frame.
+	// Not a header member yet: found by name (promote it at the next full build).
+	ConstructorHelpers::FObjectFinderOptional<USkeletalMesh> ArmMesh(ArmMeshPath);
+	ConstructorHelpers::FObjectFinderOptional<UAnimSequence> ArmPose(ArmPosePath);
+	if (bRealWristComputer && ArmMesh.Succeeded() && ArmPose.Succeeded())
+	{
+		USkeletalMeshComponent* Arm = CreateDefaultSubobject<USkeletalMeshComponent>(ArmComponentName);
+		Arm->SetupAttachment(WristPivot);
+		Arm->SetSkeletalMeshAsset(ArmMesh.Get());
+		Arm->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		Arm->AnimationData.AnimToPlay = ArmPose.Get();
+		Arm->AnimationData.bSavedLooping = false;
+		Arm->AnimationData.bSavedPlaying = false;
+		Arm->AnimationData.SavedPosition = 0.0f;
+		Arm->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+		Arm->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Arm->SetGenerateOverlapEvents(false);
+		Arm->SetCanEverAffectNavigation(false);
+		Arm->SetCastShadow(false);
+		Arm->SetOnlyOwnerSee(true);
+		Arm->SetVisibility(false);
+		// Same lighting channel as the rest of the wrist: the head lamp would white the arm out at this range.
+		Arm->LightingChannels.bChannel0 = false;
+		Arm->LightingChannels.bChannel1 = true;
+		// The screen's glow is far too weak to show the arm and hand (and a stronger one would chrome the case), so
+		// the arm also has its own dim fill, on lighting channel 2 only.
+		Arm->LightingChannels.bChannel2 = true;
+		UPointLightComponent* ArmFill = CreateDefaultSubobject<UPointLightComponent>(TEXT("ArmFill"));
+		ArmFill->SetupAttachment(WristPivot);
+		ArmFill->SetRelativeLocation(FVector(16.0, -6.0, 10.0));  // wrist space: +X toward the eye, +Z up, -Y camera right
+		ArmFill->IntensityUnits = ELightUnits::Lumens;
+		ArmFill->SetIntensity(ArmFillLumens);
+		ArmFill->SetAttenuationRadius(90.0f);
+		ArmFill->SetLightColor(FLinearColor(0.7f, 0.85f, 1.0f));
+		ArmFill->SetCastShadows(false);
+		ArmFill->SetVisibility(false);
+		ArmFill->LightingChannels.bChannel0 = false;
+		ArmFill->LightingChannels.bChannel1 = false;
+		ArmFill->LightingChannels.bChannel2 = true;
+		Forearm->SetHiddenInGame(true);
 	}
 	WristScreen = CreateDefaultSubobject<UWidgetComponent>(TEXT("WristScreen"));
 	WristScreen->SetupAttachment(WristPivot);
@@ -314,6 +394,14 @@ void APaleotrenchDiver::BeginPlay()
 	BodyOrientation = ViewOrientation;
 	ApplyBodyVisibility();
 	TintBasicShape(Forearm, FLinearColor(0.010f, 0.011f, 0.013f));
+	TInlineComponentArray<USkeletalMeshComponent*> SkeletalComponents(this);
+	for (USkeletalMeshComponent* Candidate : SkeletalComponents)
+	{
+		if (Candidate->GetFName() == FName(ArmComponentName))
+		{
+			AlignFirstPersonArm(*Candidate, *WristCase);
+		}
+	}
 
 	UE_LOG(LogPaleotrench, Display, TEXT("M2 diver ready: cruise %.0f cm/s, sprint %.0f cm/s, tuning %s"),
 		Settings.CruiseSpeed, Settings.SprintSpeed, bLoaded ? TEXT("CSV") : TEXT("fallback"));
