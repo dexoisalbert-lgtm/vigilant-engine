@@ -1,6 +1,7 @@
 #include "PaleotrenchGameMode.h"
 
 #include "Camera/PlayerCameraManager.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -15,6 +16,7 @@
 #include "Save/PaleotrenchSaveSubsystem.h"
 #include "TimerManager.h"
 #include "World/PaleotrenchAirPocket.h"
+#include "World/PaleotrenchCave.h"
 #include "World/PaleotrenchSpareTank.h"
 
 #include <string>
@@ -73,6 +75,11 @@ void APaleotrenchGameMode::Tick(float DeltaSeconds)
 void APaleotrenchGameMode::RegisterDiver(APaleotrenchDiver* InDiver)
 {
 	Diver = InDiver;
+	for (TActorIterator<APaleotrenchCave> It(GetWorld()); It; ++It)
+	{
+		Cave = *It;
+		break;
+	}
 	pt::SaveData Data;
 	const UPaleotrenchSaveSubsystem* Saves = SaveSystemOf(GetWorld());
 	const pt::ESaveLoadResult Result = Saves ? Saves->Load(Data) : pt::ESaveLoadResult::Empty;
@@ -91,9 +98,25 @@ void APaleotrenchGameMode::RegisterDiver(APaleotrenchDiver* InDiver)
 	UE_LOG(LogPaleotrench, Display, TEXT("New dive started (seed %llu)."), Seed);
 }
 
+void APaleotrenchGameMode::BuildCave()
+{
+	APaleotrenchCave* Current = Cave.Get();
+	if (!Current)
+	{
+		return;
+	}
+	Current->Build(Seed);
+	if (APaleotrenchDiver* Player = Diver.Get())
+	{
+		Player->SetDepthReference(Current->GetSurfaceWorldZ());
+	}
+}
+
 void APaleotrenchGameMode::BeginFreshDive()
 {
-	Seed = FreshSeed();
+	Seed = ForcedSeed.IsSet() ? ForcedSeed.GetValue() : FreshSeed();
+	ForcedSeed.Reset();
+	BuildCave();
 	PlaySeconds = 0.0;
 	LastCheckpointId = NAME_None;
 	LastCheckpointTime = -1000.0;
@@ -105,7 +128,12 @@ void APaleotrenchGameMode::BeginFreshDive()
 		return;
 	}
 	Current->GetGear()->ResetForNewGame();
-	if (const AActor* Start = FindPlayerStart(Current->GetController()))
+	if (const APaleotrenchCave* Generated = Cave.Get())
+	{
+		const FTransform Start = Generated->GetStartTransform();
+		Current->RespawnAt(Start.GetLocation(), static_cast<float>(Start.Rotator().Yaw));
+	}
+	else if (const AActor* Start = FindPlayerStart(Current->GetController()))
 	{
 		Current->RespawnAt(Start->GetActorLocation(), static_cast<float>(Start->GetActorRotation().Yaw));
 	}
@@ -167,8 +195,9 @@ bool APaleotrenchGameMode::LoadLatest()
 	return Saves && Saves->Load(Data) == pt::ESaveLoadResult::Ok && ApplySave(Data);
 }
 
-void APaleotrenchGameMode::StartNewGame()
+void APaleotrenchGameMode::StartNewGame(TOptional<uint64> WithSeed)
 {
+	ForcedSeed = WithSeed;
 	if (UPaleotrenchSaveSubsystem* Saves = SaveSystemOf(GetWorld()))
 	{
 		Saves->Delete();
@@ -220,7 +249,12 @@ bool APaleotrenchGameMode::ApplySave(const pt::SaveData& Data)
 	{
 		return false;
 	}
+	const bool bNewCave = !Cave.IsValid() || !Cave->IsBuilt() || Seed != Data.Seed;
 	Seed = Data.Seed;
+	if (bNewCave)
+	{
+		BuildCave();  // the save's own cave, before looking up its air pockets
+	}
 	PlaySeconds = Data.PlaySeconds;
 	CollectedPickups.Reset();
 	for (const std::string& Pickup : Data.CollectedPickups)
@@ -237,6 +271,13 @@ bool APaleotrenchGameMode::ApplySave(const pt::SaveData& Data)
 	if (const APaleotrenchAirPocket* Pocket = APaleotrenchAirPocket::FindById(GetWorld(), LastCheckpointId))
 	{
 		const FTransform At = Pocket->GetRespawnTransform();
+		Location = At.GetLocation();
+		Yaw = static_cast<float>(At.Rotator().Yaw);
+	}
+	else if (const APaleotrenchCave* Generated = Cave.Get())
+	{
+		// A save from another level (the test tank): its position means nothing here, start at the entrance.
+		const FTransform At = Generated->GetStartTransform();
 		Location = At.GetLocation();
 		Yaw = static_cast<float>(At.Rotator().Yaw);
 	}
@@ -378,6 +419,81 @@ namespace
 			{
 				Gear->DebugSetSpareTanks(FMath::RoundToInt(ConsoleNumber(Args, 1.0f)));
 			}
+		}));
+
+	// Seeds typed as numbers (decimal or 0x hex) are used as they are; anything else is hashed, like cavegen.
+	uint64 ConsoleSeed(const TArray<FString>& Args)
+	{
+		const FString Text = FString::Join(Args, TEXT(" "));
+		const FString Digits = Text.StartsWith(TEXT("0x"), ESearchCase::IgnoreCase) ? Text.Mid(2) : Text;
+		const bool bHex = Text.StartsWith(TEXT("0x"), ESearchCase::IgnoreCase);
+		bool bNumber = !Digits.IsEmpty();
+		for (const TCHAR Ch : Digits)
+		{
+			bNumber = bNumber && (bHex ? FChar::IsHexDigit(Ch) : FChar::IsDigit(Ch));
+		}
+		if (bNumber)
+		{
+			return FCString::Strtoui64(*Digits, nullptr, bHex ? 16 : 10);
+		}
+		return pt::HashText(TCHAR_TO_UTF8(*Text));
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GPaleotrenchCave(TEXT("pt.Cave"),
+		TEXT("Generated cave: pt.Cave prints its seed and size; pt.Cave new starts over in a new random cave; "
+			"pt.Cave <seed or words> starts over in that save seed's cave (Tools/CaveGen.bat <seed> --cave 1 prints its map)."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			APaleotrenchGameMode* Mode = ConsoleGameMode(World);
+			if (!Mode)
+			{
+				return;
+			}
+			const APaleotrenchCave* Current = Mode->GetCave();
+			if (Args.Num() == 0)
+			{
+				UE_LOG(LogPaleotrench, Display, TEXT("Save seed 0x%016llx. %s"), Mode->GetSaveSeed(),
+					Current ? *Current->Describe() : TEXT("This level has no generated cave (open M3_Cave)."));
+				return;
+			}
+			if (Args[0].Equals(TEXT("new"), ESearchCase::IgnoreCase))
+			{
+				Mode->StartNewGame();
+			}
+			else
+			{
+				Mode->StartNewGame(ConsoleSeed(Args));
+			}
+			if (const APaleotrenchCave* Rebuilt = Mode->GetCave())
+			{
+				UE_LOG(LogPaleotrench, Display, TEXT("Save seed 0x%016llx. %s"), Mode->GetSaveSeed(), *Rebuilt->Describe());
+			}
+		}));
+
+	FAutoConsoleCommandWithWorldAndArgs GPaleotrenchCavePath(TEXT("pt.CavePath"),
+		TEXT("Debug: draws the swimmable route from the diver to the boss arena for 30 seconds."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>&, UWorld* World)
+		{
+			const APaleotrenchGameMode* Mode = ConsoleGameMode(World);
+			const APaleotrenchCave* Current = Mode ? Mode->GetCave() : nullptr;
+			const APaleotrenchDiver* Player = Mode ? Mode->GetDiver() : nullptr;
+			if (!Current || !Player)
+			{
+				return;
+			}
+			TArray<FVector> Path;
+			if (!Current->FindSwimPath(Player->GetActorLocation(), Current->GetArenaLocation(), Path))
+			{
+				UE_LOG(LogPaleotrench, Display, TEXT("No route yet (the navigation grid may still be building)."));
+				return;
+			}
+			double Length = 0.0;
+			for (int32 i = 0; i + 1 < Path.Num(); ++i)
+			{
+				DrawDebugLine(World, Path[i], Path[i + 1], FColor(255, 200, 40), false, 30.0f, 0, 6.0f);
+				Length += FVector::Distance(Path[i], Path[i + 1]);
+			}
+			UE_LOG(LogPaleotrench, Display, TEXT("Route to the arena: %.0f m through %d waypoints."), Length / 100.0, Path.Num());
 		}));
 }
 #endif

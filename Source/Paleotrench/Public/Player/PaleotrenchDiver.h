@@ -38,6 +38,8 @@ public:
 
 	// Game mode: checkpoint loads, respawns and new dives.
 	void RespawnAt(const FVector& Location, float Yaw);
+	// World height of the water surface that depth is measured from (the test tank's dome, or a cave's entrance).
+	void SetDepthReference(double SurfaceWorldZ) { SurfaceZ = SurfaceWorldZ; }
 	void NotifyCheckpointSaved();
 	// Spare-tank pickups: false when there is no room on the harness.
 	bool CollectSpareTank();

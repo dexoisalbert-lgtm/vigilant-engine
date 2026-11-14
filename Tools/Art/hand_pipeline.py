@@ -19,15 +19,11 @@ T0 = time.time()
 def log(*x): print("[hand]", *x, "t=%.0fs" % (time.time() - T0), flush=True)
 
 PAIRS = {"Left": ("Armature.001", "Mesh_0.001"), "Right": ("Armature", "Mesh_0")}
-# old bone -> new bone (read off the rigs: root = wrist bone, then index/middle/ring/pinky/thumb chains)
-CHAINS = {"Left": {"index": ["Bone.001", "Bone.002", "Bone.003"], "middle": ["Bone.004", "Bone.005", "Bone.006"],
-                   "ring": ["Bone.007", "Bone.008", "Bone.009"], "pinky": ["Bone.010", "Bone.011"], "thumb": ["Bone.012", "Bone.013"]},
-          "Right": {"index": ["Bone.010", "Bone.011", "Bone.012"], "middle": ["Bone.001", "Bone.002", "Bone.003"],
-                    "ring": ["Bone.004", "Bone.005", "Bone.006"], "pinky": ["Bone.007", "Bone.008", "Bone.009"], "thumb": ["Bone.013", "Bone.014"]}}
+# First bone of each finger chain (read off the rigs); the rest of a chain is found by walking its children, so
+# bones added at the fingertips later get names too (index_04_r, ...).
+STARTS = {"Left": {"index": "Bone.001", "middle": "Bone.004", "ring": "Bone.007", "pinky": "Bone.010", "thumb": "Bone.012"},
+          "Right": {"index": "Bone.010", "middle": "Bone.001", "ring": "Bone.004", "pinky": "Bone.007", "thumb": "Bone.013"}}
 sfx = "_l" if side == "Left" else "_r"
-rename = {"Bone": "hand" + sfx}
-for finger, bones in CHAINS[side].items():
-    for i, b in enumerate(bones): rename[b] = "%s_%02d%s" % (finger, i + 1, sfx)
 
 sc = bpy.context.scene
 arm_n, mesh_n = PAIRS[side]
@@ -38,6 +34,21 @@ for o in list(sc.objects):
     if o.name not in (arm_n, mesh_n): bpy.data.objects.remove(o, do_unlink=True)
 bpy.ops.outliner.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 arm = bpy.data.objects[arm_n]; hi = bpy.data.objects[mesh_n]
+# The asset is the rig's REST pose: ignore whatever pose or animation the scene was left in.
+if arm.animation_data:
+    arm.animation_data.action = None
+for pb in arm.pose.bones:
+    pb.matrix_basis.identity()
+arm.data.pose_position = 'REST'
+rename = {"Bone": "hand" + sfx}
+for finger, start in STARTS[side].items():
+    bone, i = arm.data.bones[start], 1
+    while bone is not None:
+        rename[bone.name] = "%s_%02d%s" % (finger, i, sfx)
+        i += 1
+        bone = bone.children[0] if len(bone.children) == 1 else None
+unnamed = [b.name for b in arm.data.bones if b.name not in rename]
+assert not unnamed, "bones outside the finger chains: %s" % unnamed
 log("start", side, "verts", len(hi.data.vertices), "tris", sum(len(p.vertices) - 2 for p in hi.data.polygons))
 
 # 1. express the mesh in the armature's own space and reset the armature object (its placement is kept in the json)

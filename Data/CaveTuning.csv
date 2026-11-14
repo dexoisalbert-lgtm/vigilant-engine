@@ -1,0 +1,5 @@
+Name,MinChambers,MaxChambers,RegionLength,RegionWidth,RegionHeight,ChamberRadiusMin,ChamberRadiusMax,ArenaRadius,ChamberGap,TunnelRadiusMin,TunnelRadiusMax,SqueezeRadius,SqueezeChance,ShaftSlope,MaxPassageLength,CandidateNeighbours,LoopFraction,MaxAirSwim,SideRoomChance,BlendRadius,LumpStrength,LumpSize,DetailStrength,DetailSize,ChamberNoiseShare,PassageNoiseShare,VoxelSize,ChunkCells,StreamRadius,KeepRadius,GlowLumens,GlowsPerChamber
+Livyatan,14,20,56000,34000,12000,900,2300,3600,1400,200,320,120,0.2,1,11000,5,0.35,20000,0.6,320,180,1600,40,320,0.16,0.3,50,32,7500,10000,260,2
+Tusoteuthis,18,26,36000,22000,18000,450,1100,2400,1000,170,260,110,0.35,0.6,8000,5,0.35,16000,0.6,240,120,900,35,260,0.16,0.32,50,32,6000,8500,200,1
+Stygiomedusa,14,20,48000,30000,10000,800,1900,3000,1300,200,300,120,0.2,1,10000,5,0.3,22000,0.6,300,160,1400,35,300,0.16,0.3,50,32,6500,9000,90,1
+Arthropleura,22,30,40000,30000,7000,450,1000,2400,900,160,240,105,0.4,1,7000,5,0.6,14000,0.6,220,110,800,30,240,0.16,0.32,50,32,6000,8500,200,1

@@ -16,7 +16,9 @@ import unreal
 PROJECT = Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir())).resolve()
 DATA = PROJECT / "Data"
 MAP = "/Game/Maps/M1_TestTank"
+CAVE_MAP = "/Game/Maps/M3_Cave"
 WATER_MATERIAL = "/Game/Materials/M_WaterSurface"
+ROCK_MATERIAL = "/Game/Materials/M_CaveRock"
 MARKER = PROJECT / "Saved" / "Prepared.txt"
 
 # The test tank's air dome (Source/Paleotrench/Private/World/PaleotrenchTestTank.cpp).
@@ -112,6 +114,35 @@ TABLES = [
             (lambda r: r["OuterConeAngle"] >= r["InnerConeAngle"], "OuterConeAngle must be at least InnerConeAngle"),
         ],
     },
+    {
+        # Mirrors FPaleotrenchCaveSettings::IsValid (Source/Paleotrench/Public/World/PaleotrenchCaveSettings.h).
+        "csv": "CaveTuning.csv",
+        "asset": "DT_CaveTuning",
+        "struct": "/Script/Paleotrench.PaleotrenchCaveSettings",
+        "rows": ["Livyatan", "Tusoteuthis", "Stygiomedusa", "Arthropleura"],
+        "columns": {
+            "MinChambers": integer(4, 60), "MaxChambers": integer(4, 80), "RegionLength": number(5000, 200000),
+            "RegionWidth": number(5000, 200000), "RegionHeight": number(2000, 60000),
+            "ChamberRadiusMin": number(200, 5000), "ChamberRadiusMax": number(200, 8000), "ArenaRadius": number(200, 10000),
+            "ChamberGap": number(0, 20000), "TunnelRadiusMin": number(100, 2000), "TunnelRadiusMax": number(100, 3000),
+            "SqueezeRadius": number(70, 2000), "SqueezeChance": number(0, 1), "ShaftSlope": number(0.1, 10),
+            "MaxPassageLength": number(1000, 50000), "CandidateNeighbours": integer(2, 12), "LoopFraction": number(0, 2),
+            "MaxAirSwim": number(2000, 200000), "SideRoomChance": number(0, 1),
+            "BlendRadius": number(10, 2000), "LumpStrength": number(0, 1000), "LumpSize": number(50, 20000),
+            "DetailStrength": number(0, 500), "DetailSize": number(20, 5000), "ChamberNoiseShare": number(0, 0.5),
+            "PassageNoiseShare": number(0, 0.6), "VoxelSize": number(10, 400), "ChunkCells": integer(8, 64),
+            "StreamRadius": number(1000, 100000), "KeepRadius": number(1000, 200000),
+            "GlowLumens": number(0, 100000), "GlowsPerChamber": integer(0, 8),
+        },
+        "checks": [
+            (lambda r: r["MaxChambers"] >= r["MinChambers"], "MaxChambers must be at least MinChambers"),
+            (lambda r: r["ChamberRadiusMax"] >= r["ChamberRadiusMin"], "ChamberRadiusMax must be at least ChamberRadiusMin"),
+            (lambda r: r["ArenaRadius"] >= r["ChamberRadiusMax"], "ArenaRadius must be at least ChamberRadiusMax"),
+            (lambda r: r["TunnelRadiusMax"] >= r["TunnelRadiusMin"], "TunnelRadiusMax must be at least TunnelRadiusMin"),
+            (lambda r: r["SqueezeRadius"] <= r["TunnelRadiusMin"], "SqueezeRadius must not exceed TunnelRadiusMin"),
+            (lambda r: r["KeepRadius"] >= r["StreamRadius"], "KeepRadius must be at least StreamRadius"),
+        ],
+    },
 ]
 
 
@@ -205,6 +236,77 @@ def ensure_water_material():
     require(assets.save_loaded_asset(material), "Could not save M_WaterSurface")
 
 
+def ensure_rock_material():
+    """Generated cave rock. The mesher bakes into the vertex colours how open the water is in front of the
+    wall (red: crevices and corners stay dark) and slow bands across the cave (green: colour variation)."""
+    assets = unreal.EditorAssetLibrary
+    if assets.does_asset_exist(ROCK_MATERIAL):
+        return
+    assets.make_directory("/Game/Materials")
+    material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        "M_CaveRock", "/Game/Materials", unreal.Material, unreal.MaterialFactoryNew())
+    require(material, "Could not create M_CaveRock")
+    library = unreal.MaterialEditingLibrary
+
+    def node(cls, x, y):
+        return library.create_material_expression(material, cls, x, y)
+
+    def colour(rgb, x, y):
+        expression = node(unreal.MaterialExpressionConstant3Vector, x, y)
+        expression.set_editor_property("constant", unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0))
+        return expression
+
+    def scalar(value, x, y):
+        expression = node(unreal.MaterialExpressionConstant, x, y)
+        expression.set_editor_property("r", value)
+        return expression
+
+    def link(source, output, target, pin):
+        require(library.connect_material_expressions(source, output, target, pin), f"Could not wire the rock material ({pin})")
+
+    vertex = node(unreal.MaterialExpressionVertexColor, -1000, 0)
+    bands = node(unreal.MaterialExpressionLinearInterpolate, -600, -100)
+    link(colour((0.075, 0.065, 0.055), -900, -250), "", bands, "A")
+    link(colour((0.22, 0.19, 0.155), -900, -150), "", bands, "B")
+    link(vertex, "G", bands, "Alpha")
+    shade = node(unreal.MaterialExpressionLinearInterpolate, -600, 150)
+    link(scalar(0.3, -900, 120), "", shade, "A")
+    link(scalar(1.0, -900, 200), "", shade, "B")
+    link(vertex, "R", shade, "Alpha")
+    base = node(unreal.MaterialExpressionMultiply, -350, 0)
+    link(bands, "", base, "A")
+    link(shade, "", base, "B")
+    require(library.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR), "Could not wire the rock colour")
+    require(library.connect_material_property(scalar(0.88, -350, 250), "", unreal.MaterialProperty.MP_ROUGHNESS),
+            "Could not wire the rock roughness")
+    require(library.connect_material_property(scalar(0.25, -350, 350), "", unreal.MaterialProperty.MP_SPECULAR),
+            "Could not wire the rock specular")
+    library.recompile_material(material)
+    require(assets.save_loaded_asset(material), "Could not save M_CaveRock")
+
+
+def prepare_cave_map():
+    """M3: an empty dark level with one generated cave. The cave is built at Play from the save's seed."""
+    cave_class = require(unreal.load_class(None, "/Script/Paleotrench.PaleotrenchCave"),
+                         "Cave class is missing. Run Build.bat first.")
+    unreal.EditorAssetLibrary.make_directory("/Game/Maps")
+    levels = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+    actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    if unreal.EditorAssetLibrary.does_asset_exist(CAVE_MAP):
+        require(levels.load_level(CAVE_MAP), "Could not load the cave map")
+    else:
+        require(levels.new_level(CAVE_MAP), "Could not create the cave map")
+    existing = actors.get_all_level_actors()
+    if not any(actor.get_class() == cave_class for actor in existing):
+        cave = require(actors.spawn_actor_from_class(cave_class, unreal.Vector(0, 0, 0)), "Could not spawn the cave")
+        cave.set_actor_label("Generated Cave")
+    if not any(isinstance(actor, unreal.PlayerStart) for actor in existing):
+        # Only where the pawn first appears; the game mode moves the diver into the cave's entrance.
+        start = require(actors.spawn_actor_from_class(unreal.PlayerStart, unreal.Vector(0, 0, 0)), "Could not spawn a PlayerStart")
+        start.set_actor_label("Diver Start (moved into the cave at Play)")
+    require(levels.save_current_level(), "Could not save the cave map")
+
+
 def prepare_map():
     tank_class = require(unreal.load_class(None, "/Script/Paleotrench.PaleotrenchTestTank"),
                          "Tank class is missing. Run Build.bat first.")
@@ -252,9 +354,11 @@ def prepare(tables_only):
     if tables_only:
         return
     ensure_water_material()
+    ensure_rock_material()
     prepare_map()
+    prepare_cave_map()
     MARKER.parent.mkdir(parents=True, exist_ok=True)
-    MARKER.write_text("Tables, materials and the test tank map prepared successfully.\n", encoding="utf-8")
+    MARKER.write_text("Tables, materials, the test tank map and the cave map prepared successfully.\n", encoding="utf-8")
     unreal.log("PALEOTRENCH PREPARATION SUCCEEDED")
 
 

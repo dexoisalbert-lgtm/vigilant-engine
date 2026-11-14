@@ -25,6 +25,8 @@ public:
 
 	bool ContainsPoint(const FVector& WorldPoint) const;
 	FName GetCheckpointId() const;
+	// For pockets spawned at runtime (generated caves): set before the first checkpoint.
+	void SetCheckpointId(FName Id) { CheckpointId = Id; }
 	// Where a diver reappears after a blackout: head just above the water.
 	FTransform GetRespawnTransform() const;
 

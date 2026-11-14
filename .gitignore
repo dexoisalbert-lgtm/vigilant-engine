@@ -23,6 +23,7 @@ Plugins/*/Intermediate/
 
 # Engine-free core test build
 Tools/CoreTests/build/
+Tools/CaveGen/build/
 
 # Python editor-tool bytecode
 __pycache__/

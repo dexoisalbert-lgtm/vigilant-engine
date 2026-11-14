@@ -14,6 +14,7 @@ public class Paleotrench : ModuleRules
 			"InputCore",
 			"EnhancedInput",
 			"PaleotrenchCore",
+			"ProceduralMeshComponent",
 			"UMG",
 			"Slate",
 			"SlateCore",

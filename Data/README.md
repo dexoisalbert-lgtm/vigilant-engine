@@ -11,6 +11,7 @@ DataTables by the editor tooling.
 | `OxygenTuning.csv` | `DT_OxygenTuning` | `FPaleotrenchOxygenSettings` | [M2 checklist](../Docs/Playtests/M2.md#adjust-the-numbers) |
 | `PowerTuning.csv` | `DT_PowerTuning` | `FPaleotrenchPowerSettings` | [M2 checklist](../Docs/Playtests/M2.md#adjust-the-numbers) |
 | `LampLevels.csv` | `DT_LampLevels` | `FPaleotrenchLampLevelSettings` | one row per lamp level |
+| `CaveTuning.csv` | `DT_CaveTuning` | `FPaleotrenchCaveSettings` | one row per boss cave: [M3 checklist](../Docs/Playtests/M3.md#adjust-the-numbers) |
 
 `Tools/Prepare.bat` validates every file (ranges and cross-checks such as
 critical below reserve) before importing any of them into `/Game/Data/`.

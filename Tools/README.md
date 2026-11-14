@@ -3,13 +3,14 @@
 | File | What it does | Who runs it |
 |---|---|---|
 | `Build.bat` | Compiles the editor build of the game. | You, after every `git pull` that changed `Source/`. |
-| `Prepare.bat` | Imports every `Data/*.csv` table, creates generated materials and prepares the test tank map (air pocket, spare tanks). | You, after a build that adds content and after CSV changes, with Unreal closed. |
+| `Prepare.bat` | Imports every `Data/*.csv` table, creates generated materials and prepares the test tank map (air pocket, spare tanks) and the generated cave map M3_Cave. | You, after a build that adds content and after CSV changes, with Unreal closed. |
 | `Editor/prepare.py` | Validates tuning and generates the assets using Unreal Python. `--tables-only` just reimports tables. | Called by `Prepare.bat` and `ue_live.py tables`. |
 | `CollectLogs.bat` | Puts build errors and the game log summary on your clipboard. | You, whenever something fails. |
 | `FindEngine.bat` | Locates your Unreal install. Used by the other scripts. | — |
 | `RunCoreTests.bat` | Builds and runs the engine-free core tests with the Visual Studio compiler (no CMake, no Unreal). | Before every code delivery. |
 | `run_core_tests.sh` | The same tests through CMake, for machines that have it. | Optional. |
 | `CoreTests/` | The tests themselves. | — |
+| `CaveGen.bat` | Builds and runs `cavegen`: prints the layout of any cave seed (`--cave 1-4` for a save seed's cave as the game builds it, `--svg file` for a drawing, `--survey n` for statistics), using `Data/CaveTuning.csv`. | When a cave from a bug report needs a look. |
 | `Art/decimate_static.py`, `Art/decimate_skinned.py` | Blender (run headless with `-b --python`): turn multi-million-triangle Meshy exports into game-ready meshes by decimating and re-baking all four maps. Arguments are in each file's header. | Whenever new Meshy gear or characters arrive. |
 | `Art/compare_render.py` | Renders the original beside the reduced mesh, to check nothing was lost. | After a decimation. |
 | `Art/ue_import_static.py` | Imports the reduced pieces into `/Game/Art/Diver/Gear` (or `GEAR_ROOT`, e.g. `/Game/Art/Weapons`) with the shared master material (run with `ue_live.py file` or headless). | After a decimation. |
