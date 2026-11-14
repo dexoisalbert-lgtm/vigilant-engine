@@ -1,6 +1,5 @@
 #include "Player/PaleotrenchDiver.h"
 
-#include "Animation/AnimSequence.h"
 #include "Blueprint/UserWidget.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -51,12 +50,16 @@ namespace
 	// Player model and worn gear (imported from Meshy output; see Tools/Art).
 	// Every path is optional: without the content the diver simply has no body.
 	const TCHAR* const BodyMeshPath = TEXT("/Game/Art/Diver/Player/SK_Diver.SK_Diver");
-	// First-person arm: the left arm cut from the body mesh (same skeleton, finger bones) held in a one-frame pose.
-	const TCHAR* const ArmMeshPath = TEXT("/Game/Art/Diver/Player/SK_Diver_FPArm.SK_Diver_FPArm");
-	const TCHAR* const ArmPosePath = TEXT("/Game/Art/Diver/Player/A_Diver_FP_LeftArm.A_Diver_FP_LeftArm");
-	const TCHAR* const ArmComponentName = TEXT("FirstPersonArm");
-	const TCHAR* const ComputerBone = TEXT("LeftForeArm");
-	constexpr float ArmFillLumens = 1.6f;
+	// First-person hands: modelled and rigged in Blender, posed in front of a camera, then baked in camera space
+	// (Tools/Art/hand_pipeline), so they attach to the camera with an identity transform and render with that Blender
+	// camera's field of view (a 50 mm lens on a 36 mm sensor: 39.6 degrees across).
+	const TCHAR* const HandLeftPath = TEXT("/Game/Art/Diver/Hands/SK_FPHand_L.SK_FPHand_L");
+	const TCHAR* const HandRightPath = TEXT("/Game/Art/Diver/Hands/SK_FPHand_R.SK_FPHand_R");
+	const TCHAR* const HandLeftName = TEXT("FirstPersonHandL");
+	const TCHAR* const HandRightName = TEXT("FirstPersonHandR");
+	constexpr float HandFieldOfView = 39.6f;
+	constexpr float HandViewScale = 0.5f;  // squashes the hands toward the camera, so they stay out of walls
+	constexpr float HandFillLumens = 3.0f;
 	const TCHAR* const ComputerMeshPath = TEXT("/Game/Art/Diver/Gear/DiveComputer/SM_DiveComputer.SM_DiveComputer");
 	// Where the eyes sit in the body mesh (cm; +Y is the face, +Z is up).
 	const FVector BodyEyeInMesh(0.0, 14.0, 157.0);
@@ -138,30 +141,22 @@ namespace
 		Mesh->LightingChannels.bChannel1 = true;
 	}
 
-	// Puts the first-person arm where the dive computer on it coincides with the wrist case. The computer is
-	// mounted on the forearm bone exactly as on the body (WornDiveComputer), so the arm follows from the case.
-	void AlignFirstPersonArm(USkeletalMeshComponent& Arm, const UStaticMeshComponent& Case)
+	// The hands show in first person only. While the wrist computer is up the left hand steps aside (the computer
+	// floats where the hand is); the debug body view hides both.
+	void ApplyHandVisibility(AActor& Owner, bool bBodyView, bool bWristShown)
 	{
-		const TArray<FWornGearSpec> Specs = MakeWornGearSpecs();
-		const FWornGearSpec* Spec = nullptr;
-		for (const FWornGearSpec& Candidate : Specs)
+		TInlineComponentArray<USkeletalMeshComponent*> Components(&Owner);
+		for (USkeletalMeshComponent* Component : Components)
 		{
-			if (FCString::Strcmp(Candidate.Name, TEXT("WornDiveComputer")) == 0)
+			if (Component->GetFName() == FName(HandLeftName))
 			{
-				Spec = &Candidate;
+				Component->SetVisibility(!bBodyView && !bWristShown);
+			}
+			else if (Component->GetFName() == FName(HandRightName))
+			{
+				Component->SetVisibility(!bBodyView);
 			}
 		}
-		if (!Spec)
-		{
-			return;
-		}
-		// The pose is a single frame: evaluate it now so the bone transforms are valid.
-		Arm.TickAnimation(0.0f, false);
-		Arm.RefreshBoneTransforms();
-		const FTransform BoneInComponent = Arm.GetSocketTransform(ComputerBone, RTS_Component);
-		const FTransform ComputerOnBone(Spec->Rotation, Spec->Location, Spec->Scale);
-		const FTransform ComputerInComponent = ComputerOnBone * BoneInComponent;
-		Arm.SetRelativeTransform(ComputerInComponent.Inverse() * Case.GetRelativeTransform());
 	}
 
 	void TintBasicShape(UStaticMeshComponent* Mesh, const FLinearColor& Color)
@@ -277,46 +272,54 @@ APaleotrenchDiver::APaleotrenchDiver(const FObjectInitializer& ObjectInitializer
 		WristCase->SetRelativeLocationAndRotation(ComputerLocation, FRotator(0.0, -90.0, 0.0));
 		WristCase->SetRelativeScale3D(FVector(ComputerScale));
 	}
-	// The diver's own left arm replaces the greybox forearm when it is imported. It is placed in BeginPlay so the
-	// dive computer sits on it exactly as on the body (see AlignFirstPersonArm); the pose is a single frame.
-	// Not a header member yet: found by name (promote it at the next full build).
-	ConstructorHelpers::FObjectFinderOptional<USkeletalMesh> ArmMesh(ArmMeshPath);
-	ConstructorHelpers::FObjectFinderOptional<UAnimSequence> ArmPose(ArmPosePath);
-	if (bRealWristComputer && ArmMesh.Succeeded() && ArmPose.Succeeded())
+	// The player's hands. Not header members yet: found by name (promote them at the next full build).
+	ConstructorHelpers::FObjectFinderOptional<USkeletalMesh> LeftHandMesh(HandLeftPath);
+	ConstructorHelpers::FObjectFinderOptional<USkeletalMesh> RightHandMesh(HandRightPath);
+	if (LeftHandMesh.Succeeded() || RightHandMesh.Succeeded())
 	{
-		USkeletalMeshComponent* Arm = CreateDefaultSubobject<USkeletalMeshComponent>(ArmComponentName);
-		Arm->SetupAttachment(WristPivot);
-		Arm->SetSkeletalMeshAsset(ArmMesh.Get());
-		Arm->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-		Arm->AnimationData.AnimToPlay = ArmPose.Get();
-		Arm->AnimationData.bSavedLooping = false;
-		Arm->AnimationData.bSavedPlaying = false;
-		Arm->AnimationData.SavedPosition = 0.0f;
-		Arm->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
-		Arm->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		Arm->SetGenerateOverlapEvents(false);
-		Arm->SetCanEverAffectNavigation(false);
-		Arm->SetCastShadow(false);
-		Arm->SetOnlyOwnerSee(true);
-		Arm->SetVisibility(false);
-		// Same lighting channel as the rest of the wrist: the head lamp would white the arm out at this range.
-		Arm->LightingChannels.bChannel0 = false;
-		Arm->LightingChannels.bChannel1 = true;
-		// The screen's glow is far too weak to show the arm and hand (and a stronger one would chrome the case), so
-		// the arm also has its own dim fill, on lighting channel 2 only.
-		Arm->LightingChannels.bChannel2 = true;
-		UPointLightComponent* ArmFill = CreateDefaultSubobject<UPointLightComponent>(TEXT("ArmFill"));
-		ArmFill->SetupAttachment(WristPivot);
-		ArmFill->SetRelativeLocation(FVector(16.0, -6.0, 10.0));  // wrist space: +X toward the eye, +Z up, -Y camera right
-		ArmFill->IntensityUnits = ELightUnits::Lumens;
-		ArmFill->SetIntensity(ArmFillLumens);
-		ArmFill->SetAttenuationRadius(90.0f);
-		ArmFill->SetLightColor(FLinearColor(0.7f, 0.85f, 1.0f));
-		ArmFill->SetCastShadows(false);
-		ArmFill->SetVisibility(false);
-		ArmFill->LightingChannels.bChannel0 = false;
-		ArmFill->LightingChannels.bChannel1 = false;
-		ArmFill->LightingChannels.bChannel2 = true;
+		// The hands render with their own field of view and are squashed toward the camera (the picture does not
+		// change, but they cannot poke into walls).
+		DiveCamera->SetEnableFirstPersonFieldOfView(true);
+		DiveCamera->SetFirstPersonFieldOfView(HandFieldOfView);
+		DiveCamera->SetEnableFirstPersonScale(true);
+		DiveCamera->SetFirstPersonScale(HandViewScale);
+		const auto MakeHand = [this](const TCHAR* Name, USkeletalMesh* HandMesh)
+		{
+			USkeletalMeshComponent* Hand = CreateDefaultSubobject<USkeletalMeshComponent>(Name);
+			Hand->SetupAttachment(DiveCamera);
+			Hand->SetSkeletalMeshAsset(HandMesh);
+			Hand->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Hand->SetGenerateOverlapEvents(false);
+			Hand->SetCanEverAffectNavigation(false);
+			Hand->SetCastShadow(false);
+			Hand->SetOnlyOwnerSee(true);
+			Hand->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
+			// Lighting channel 2 only: the head lamp would white the hands out at this range, so they have their own
+			// dim fill instead.
+			Hand->LightingChannels.bChannel0 = false;
+			Hand->LightingChannels.bChannel1 = false;
+			Hand->LightingChannels.bChannel2 = true;
+		};
+		if (LeftHandMesh.Succeeded())
+		{
+			MakeHand(HandLeftName, LeftHandMesh.Get());
+		}
+		if (RightHandMesh.Succeeded())
+		{
+			MakeHand(HandRightName, RightHandMesh.Get());
+		}
+		UPointLightComponent* HandFill = CreateDefaultSubobject<UPointLightComponent>(TEXT("HandFill"));
+		HandFill->SetupAttachment(DiveCamera);
+		HandFill->SetRelativeLocation(FVector(10.0, 0.0, 25.0));  // camera space: +X forward, +Y right, +Z up
+		HandFill->IntensityUnits = ELightUnits::Lumens;
+		HandFill->SetIntensity(HandFillLumens);
+		HandFill->SetAttenuationRadius(150.0f);
+		HandFill->SetLightColor(FLinearColor(0.7f, 0.85f, 1.0f));
+		HandFill->SetCastShadows(false);
+		HandFill->LightingChannels.bChannel0 = false;
+		HandFill->LightingChannels.bChannel1 = false;
+		HandFill->LightingChannels.bChannel2 = true;
+		// The greybox forearm of the first wrist computer is no longer needed.
 		Forearm->SetHiddenInGame(true);
 	}
 	WristScreen = CreateDefaultSubobject<UWidgetComponent>(TEXT("WristScreen"));
@@ -394,14 +397,6 @@ void APaleotrenchDiver::BeginPlay()
 	BodyOrientation = ViewOrientation;
 	ApplyBodyVisibility();
 	TintBasicShape(Forearm, FLinearColor(0.010f, 0.011f, 0.013f));
-	TInlineComponentArray<USkeletalMeshComponent*> SkeletalComponents(this);
-	for (USkeletalMeshComponent* Candidate : SkeletalComponents)
-	{
-		if (Candidate->GetFName() == FName(ArmComponentName))
-		{
-			AlignFirstPersonArm(*Candidate, *WristCase);
-		}
-	}
 
 	UE_LOG(LogPaleotrench, Display, TEXT("M2 diver ready: cruise %.0f cm/s, sprint %.0f cm/s, tuning %s"),
 		Settings.CruiseSpeed, Settings.SprintSpeed, bLoaded ? TEXT("CSV") : TEXT("fallback"));
@@ -766,6 +761,7 @@ void APaleotrenchDiver::ApplyBodyVisibility()
 		Piece->SetOwnerNoSee(bHide);
 	}
 	BodyViewLight->SetVisibility(bBodyView);
+	ApplyHandVisibility(*this, bBodyView, WristBlend > 0.001f);
 }
 
 void APaleotrenchDiver::SetBodyView(bool bOn, float OrbitYaw)
@@ -826,6 +822,7 @@ void APaleotrenchDiver::UpdateWrist(float Dt)
 	{
 		WristPivot->SetVisibility(bShown, true);
 		WristScreen->SetComponentTickEnabled(bShown);
+		ApplyHandVisibility(*this, bBodyView, bShown);
 	}
 	if (!bShown)
 	{

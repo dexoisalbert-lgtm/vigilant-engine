@@ -17,6 +17,9 @@
 | `Art/export_finger_rig.py`, `Art/pose_lib.py` | Blender: exports the finger-rigged body, a left-arm-only mesh for first person and the one-frame arm pose as FBX. Finger poses live in `pose_lib.py`. | After `rig_fingers.py`. |
 | `Art/check_finger_pose.py` | Renders a hand curled in a pose (relaxed, fist) to check the finger weights. | After rigging. |
 | `Art/ue_import_fingers.py` | Imports the three FBX files onto the existing diver skeleton (new bones merge in). | After the export. |
+| `Art/hand_pipeline.py` | Blender: turns a rigged first-person hand (a Meshy arm with a hand-made armature, placed in front of a scene camera) into a game-ready mesh in camera space, scaled to a human hand, with renamed bones and re-baked maps. In Unreal it attaches to the camera with no offset. | When the hands change in Blender. |
+| `Art/check_hands_render.py` | Renders the exported hands through a camera set up like the game camera, to compare with the Blender view. | After `hand_pipeline.py`. |
+| `Art/ue_import_hands.py` | Imports the two hand meshes, their maps and material instances into `/Game/Art/Diver/Hands`. | After the pipeline. |
 
 The preparation log is `Saved/Logs/Prepare.txt`; `CollectLogs.bat` includes it.
 The success marker (`Saved/Prepared.txt`) is written only after the tables,
